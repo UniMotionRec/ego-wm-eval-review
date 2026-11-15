@@ -12,7 +12,11 @@
 
 ## 接入评估流水线
 
-导出盲审素材后，用 [打包工具](scripts/README.md) 生成可导入的 ZIP。素材只带随机案例编号、任务说明、视频和时间证据。组织者单独保管案例编号映射，两名审阅者分别完成后再合并导出的 JSONL。遇到分歧，可发同一素材给第三名审阅者，并把其批次清单的 `assignment_role` 设为 `arbiter`。
+导出盲审素材后，用 [打包工具](scripts/README.md) 生成可导入的 ZIP。素材只带随机案例编号、任务说明、视频和时间证据。组织者单独保管案例编号映射，两名审阅者分别完成后再合并导出的 JSONL。有分歧时，用下方命令打包分歧案例，把新 ZIP 发给第三名审阅者。复核包沿用原编号，里面只有视频和判定表。
+
+```bash
+python3 scripts/prepare_arbitration.py --bundle review.zip --labels r1.jsonl r2.jsonl --out arbiter.zip
+```
 
 页面与合成练习公开部署。组内真实视频和标注文件通过组内渠道交接，导入和导出时由浏览器本地处理。
 
