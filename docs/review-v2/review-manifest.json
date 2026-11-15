@@ -1,0 +1,1550 @@
+{
+  "schema_version": 2,
+  "batch_id": "ego-wm-e0-six-case-v2",
+  "title": "人手到机器人 · 开发审阅",
+  "cases": [
+    {
+      "blind_id": "0c6d68e999e3a51f",
+      "task": {
+        "title": "纸盒 · 提起并保持",
+        "description": "用右手把纸盒提离原桌面，并保持到动作结束。",
+        "rubric": {
+          "functional": "观察纸盒何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
+          "contact": "核对抓握的手、手指和纸盒上的接触部位。看不清的要素可填「无法判断」。",
+          "motion": "比较人手靠近纸盒的过程和纸盒的运动路径。"
+        }
+      },
+      "media": {
+        "source": "media/reference-01.mp4",
+        "execution": "media/0c6d68e999e3a51f.execution.mp4",
+        "timestamps": "media/0c6d68e999e3a51f.timestamps.jsonl",
+        "physical_evidence": "media/0c6d68e999e3a51f.physical_evidence.jsonl",
+        "source_timestamps": "media/0c6d68e999e3a51f.source_timestamps.jsonl",
+        "execution_closeup": "media/0c6d68e999e3a51f.execution_closeup.mp4"
+      },
+      "task_card": {
+        "protocol_id": "ego-wm-v0.3-dev-review",
+        "profile_id": "contact_regions_diagnostic_v1",
+        "scope_id": "full_episode",
+        "review_mode": "diagnostic",
+        "required_dimensions": [
+          "V",
+          "P",
+          "C",
+          "M"
+        ],
+        "allowed_correspondence_ids": [
+          "sharpa_anatomical_roles_v1"
+        ],
+        "task_goal_zh": "把指定物体提离原支撑面，并在规定末段由机器人持稳。",
+        "source_scope": "审阅片段中的接近、抓取、提起及末段保持。",
+        "demonstration_constraints_zh": "示范使用右手。核对可见的手指或手掌区域与物体接触区域。",
+        "reference_eligibility": {
+          "strict_core": false,
+          "reason": "开发材料。源片段无法独立确认细指法、接触力与所有运动容差。"
+        },
+        "not_applicable_requirements": [
+          "P.terminal_release"
+        ],
+        "description": "用右手把纸盒提离原桌面，并保持到动作结束。",
+        "requirements": {
+          "P": [
+            {
+              "id": "P.lift",
+              "label_zh": "物体确实离开原支撑面",
+              "failure_code": "required_lift_missing",
+              "failure_label_zh": "未提起物体",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.terminal_hold",
+              "label_zh": "片段末段持续持稳物体",
+              "failure_code": "terminal_hold_failed",
+              "failure_label_zh": "结束前掉落或失去持有",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                1.9333333333333331,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "C": [
+            {
+              "id": "C.hand_role",
+              "label_zh": "使用示范要求的手和分工",
+              "failure_code": "wrong_hand_role",
+              "failure_label_zh": "使用了另一只手或交换分工",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.hand_region",
+              "label_zh": "可见的手指或手掌接触区域与示范一致",
+              "failure_code": "wrong_hand_region",
+              "failure_label_zh": "手指或手掌接触区域明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.object_region",
+              "label_zh": "接触物体上的对应区域",
+              "failure_code": "wrong_object_region",
+              "failure_label_zh": "接触了明显不同的物体部位",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "C.contact_sequence",
+              "label_zh": "必要的接触转换依次发生",
+              "failure_code": "missing_contact_transition",
+              "failure_label_zh": "必要接触未发生或顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "M": [
+            {
+              "id": "M.object_path",
+              "label_zh": "物体的大致运动路径、方向与示范一致",
+              "failure_code": "object_path_deviation",
+              "failure_label_zh": "物体路径或方向明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "M.hand_phase",
+              "label_zh": "接近和抬起的动作顺序与示范一致",
+              "failure_code": "phase_order_deviation",
+              "failure_label_zh": "动作先后顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution",
+                  "timing"
+                ]
+              ]
+            }
+          ]
+        },
+        "title_zh": "纸盒 · 提起并保持"
+      },
+      "timeline": {
+        "time_policy": "identity",
+        "source_video_offset_s": 0.0,
+        "execution_video_offset_s": 0.0,
+        "source_duration_s": 2.466666666666667,
+        "execution_duration_s": 2.466666666666667,
+        "preparation_s": 0.0,
+        "uniform_scale": 1.0,
+        "score_window_s": [
+          0,
+          2.433333333333333
+        ],
+        "physics_dt_s": 0.005,
+        "native_trace_end_s": 2.4349999999999703,
+        "source_time_origin": "source_nominal_30_hz"
+      },
+      "trace_binding_hash": "sha256:03832e44ddd4029f3e255fc2b5064e2dd2f47c892e0abb893eafc288709e02e0",
+      "media_hashes": {
+        "source": "sha256:8bdfe2eed3b289a16c5b634b74e4842a329e579a45880a1050258c1243abba78",
+        "execution": "sha256:b8a9e7b177c9f31e057499127bb9295d87cf11c6837d320fd78ed06fb18fa782",
+        "timestamps": "sha256:b5679e3e38d819d303d4b542aa3ae2176f43aa2e24cd8f97bc91996f77e4f038",
+        "physical_evidence": "sha256:3c9615c3d05435030fe1ab46d73b7d38b2b6f40e12b0727f435e8c5c6f69c07c",
+        "source_timestamps": "sha256:7f67dd5a010868ac6cecbb19bbb6f051b713739638b507f3d4450f5751360ffe",
+        "execution_closeup": "sha256:c0a3b88f3aaa3ebd425fe3b8404dd3f17ed95f4e3194f44e9b9f5415d196cae0"
+      },
+      "task_card_hash": "sha256:316dc883d6af6fc540ee48102a327648f1455332dbd0798b98d0f832a06d3432",
+      "evidence_hash": "sha256:24bf6222565b86f605faf68309b305a2110d401c20d7564ce87061c15da3e2d3",
+      "time_mapping_hash": "sha256:0a50369323b35ec540bca7585e90a2c0fc5fd10b36d4a470e12a010f16a99617",
+      "case_fingerprint": "sha256:9e627b2f0a74810168e49f8fab90d8b0237013d8e105649a29dfebbb53388300"
+    },
+    {
+      "blind_id": "5d41efc260b0111a",
+      "task": {
+        "title": "纸盒 · 提起并保持",
+        "description": "用右手把纸盒提离原桌面，并保持到动作结束。",
+        "rubric": {
+          "functional": "观察纸盒何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
+          "contact": "核对抓握的手、手指和纸盒上的接触部位。看不清的要素可填「无法判断」。",
+          "motion": "比较人手靠近纸盒的过程和纸盒的运动路径。"
+        }
+      },
+      "media": {
+        "source": "media/reference-01.mp4",
+        "execution": "media/5d41efc260b0111a.execution.mp4",
+        "timestamps": "media/5d41efc260b0111a.timestamps.jsonl",
+        "physical_evidence": "media/5d41efc260b0111a.physical_evidence.jsonl",
+        "source_timestamps": "media/5d41efc260b0111a.source_timestamps.jsonl",
+        "execution_closeup": "media/5d41efc260b0111a.execution_closeup.mp4"
+      },
+      "task_card": {
+        "protocol_id": "ego-wm-v0.3-dev-review",
+        "profile_id": "contact_regions_diagnostic_v1",
+        "scope_id": "full_episode",
+        "review_mode": "diagnostic",
+        "required_dimensions": [
+          "V",
+          "P",
+          "C",
+          "M"
+        ],
+        "allowed_correspondence_ids": [
+          "sharpa_anatomical_roles_v1"
+        ],
+        "task_goal_zh": "把指定物体提离原支撑面，并在规定末段由机器人持稳。",
+        "source_scope": "审阅片段中的接近、抓取、提起及末段保持。",
+        "demonstration_constraints_zh": "示范使用右手。核对可见的手指或手掌区域与物体接触区域。",
+        "reference_eligibility": {
+          "strict_core": false,
+          "reason": "开发材料。源片段无法独立确认细指法、接触力与所有运动容差。"
+        },
+        "not_applicable_requirements": [
+          "P.terminal_release"
+        ],
+        "description": "用右手把纸盒提离原桌面，并保持到动作结束。",
+        "requirements": {
+          "P": [
+            {
+              "id": "P.lift",
+              "label_zh": "物体确实离开原支撑面",
+              "failure_code": "required_lift_missing",
+              "failure_label_zh": "未提起物体",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.terminal_hold",
+              "label_zh": "片段末段持续持稳物体",
+              "failure_code": "terminal_hold_failed",
+              "failure_label_zh": "结束前掉落或失去持有",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                1.9333333333333331,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "C": [
+            {
+              "id": "C.hand_role",
+              "label_zh": "使用示范要求的手和分工",
+              "failure_code": "wrong_hand_role",
+              "failure_label_zh": "使用了另一只手或交换分工",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.hand_region",
+              "label_zh": "可见的手指或手掌接触区域与示范一致",
+              "failure_code": "wrong_hand_region",
+              "failure_label_zh": "手指或手掌接触区域明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.object_region",
+              "label_zh": "接触物体上的对应区域",
+              "failure_code": "wrong_object_region",
+              "failure_label_zh": "接触了明显不同的物体部位",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "C.contact_sequence",
+              "label_zh": "必要的接触转换依次发生",
+              "failure_code": "missing_contact_transition",
+              "failure_label_zh": "必要接触未发生或顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "M": [
+            {
+              "id": "M.object_path",
+              "label_zh": "物体的大致运动路径、方向与示范一致",
+              "failure_code": "object_path_deviation",
+              "failure_label_zh": "物体路径或方向明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "M.hand_phase",
+              "label_zh": "接近和抬起的动作顺序与示范一致",
+              "failure_code": "phase_order_deviation",
+              "failure_label_zh": "动作先后顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.433333333333333
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution",
+                  "timing"
+                ]
+              ]
+            }
+          ]
+        },
+        "title_zh": "纸盒 · 提起并保持"
+      },
+      "timeline": {
+        "time_policy": "identity",
+        "source_video_offset_s": 0.0,
+        "execution_video_offset_s": 0.0,
+        "source_duration_s": 2.466666666666667,
+        "execution_duration_s": 2.466666666666667,
+        "preparation_s": 0.0,
+        "uniform_scale": 1.0,
+        "score_window_s": [
+          0,
+          2.433333333333333
+        ],
+        "physics_dt_s": 0.005,
+        "native_trace_end_s": 2.4349999999999703,
+        "source_time_origin": "source_nominal_30_hz"
+      },
+      "trace_binding_hash": "sha256:f23bf2006ddac2a41ed1253f0a649114f5862fc3cb495b02073a3a0e1afe1b27",
+      "media_hashes": {
+        "source": "sha256:8bdfe2eed3b289a16c5b634b74e4842a329e579a45880a1050258c1243abba78",
+        "execution": "sha256:54ce8ddb32afcc657e712999d74973674a878cfd6926630b7f85f550d21e5e19",
+        "timestamps": "sha256:b5679e3e38d819d303d4b542aa3ae2176f43aa2e24cd8f97bc91996f77e4f038",
+        "physical_evidence": "sha256:d95a5ae7e5f4b43a432c8aeea5c0384bfb8d07ec23b473f8aab967a54c4d13de",
+        "source_timestamps": "sha256:7f67dd5a010868ac6cecbb19bbb6f051b713739638b507f3d4450f5751360ffe",
+        "execution_closeup": "sha256:4776ade1c7748a13de1bd92d1f8136e2f0de76783616bc5046a3bc4597bc802a"
+      },
+      "task_card_hash": "sha256:316dc883d6af6fc540ee48102a327648f1455332dbd0798b98d0f832a06d3432",
+      "evidence_hash": "sha256:d9c3f3ac47bb141c26da62d26f973182d90b15ffa520067d5907cd46f4c45361",
+      "time_mapping_hash": "sha256:0a50369323b35ec540bca7585e90a2c0fc5fd10b36d4a470e12a010f16a99617",
+      "case_fingerprint": "sha256:67a6620e6ef9cf66c3f01003a38b767d4e3bf287802e6e04d69ae48e0c34e286"
+    },
+    {
+      "blind_id": "718aec97574d52e6",
+      "task": {
+        "title": "杯子 · 搬运并放下",
+        "description": "左手握住杯柄，将起始时已握住的杯子移到桌面，放稳后撤手。右手操作的是另一件物体。",
+        "rubric": {
+          "functional": "依次观察搬运、在目标桌面上释放、放下后保持稳定。",
+          "contact": "核对抓握的手和接触部位，尤其是是否握住杯柄。",
+          "motion": "比较杯子的移动路径、方向，以及放下后的撤手动作。"
+        }
+      },
+      "media": {
+        "source": "media/reference-02.mp4",
+        "execution": "media/718aec97574d52e6.execution.mp4",
+        "timestamps": "media/718aec97574d52e6.timestamps.jsonl",
+        "physical_evidence": "media/718aec97574d52e6.physical_evidence.jsonl",
+        "source_timestamps": "media/718aec97574d52e6.source_timestamps.jsonl",
+        "execution_closeup": "media/718aec97574d52e6.execution_closeup.mp4"
+      },
+      "task_card": {
+        "protocol_id": "ego-wm-v0.3-dev-review",
+        "profile_id": "contact_regions_diagnostic_v1",
+        "scope_id": "full_episode",
+        "review_mode": "diagnostic",
+        "required_dimensions": [
+          "V",
+          "P",
+          "C",
+          "M"
+        ],
+        "allowed_correspondence_ids": [
+          "sharpa_anatomical_roles_v1"
+        ],
+        "task_goal_zh": "把已持有的杯子搬到目标桌面，解除手部承载，并放稳。",
+        "source_scope": "本片段从已持杯开始，审阅搬运、放置和撤手。",
+        "demonstration_constraints_zh": "示范使用左手接触杯柄。右手操作的另一物体在任务范围外。",
+        "reference_eligibility": {
+          "strict_core": false,
+          "reason": "开发材料。源片段无法独立确认细指法、接触力与所有运动容差。"
+        },
+        "not_applicable_requirements": [
+          "C.initial_grasp",
+          "M.initial_approach"
+        ],
+        "description": "左手握住杯柄，将起始时已握住的杯子移到桌面，放稳后撤手。右手操作的是另一件物体。",
+        "requirements": {
+          "P": [
+            {
+              "id": "P.carry",
+              "label_zh": "已持有的杯子完成搬运",
+              "failure_code": "carry_missing",
+              "failure_label_zh": "未完成搬运",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.target_support",
+              "label_zh": "杯子放在题目指定的桌面区域",
+              "failure_code": "wrong_target_support",
+              "failure_label_zh": "没有放到目标区域",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                4.666677401,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.terminal_release",
+              "label_zh": "结束时手已解除杯子承载",
+              "failure_code": "no_release",
+              "failure_label_zh": "结束时手仍承载杯子",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                4.666677401,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.terminal_stability",
+              "label_zh": "放下后在末段保持稳定",
+              "failure_code": "placement_unstable",
+              "failure_label_zh": "末段未保持稳定",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                4.666677401,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "C": [
+            {
+              "id": "C.hand_role",
+              "label_zh": "使用示范要求的手和分工",
+              "failure_code": "wrong_hand_role",
+              "failure_label_zh": "使用了另一只手或交换分工",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.hand_region",
+              "label_zh": "可见的手指或手掌接触区域与示范一致",
+              "failure_code": "wrong_hand_region",
+              "failure_label_zh": "手指或手掌接触区域明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.object_region",
+              "label_zh": "主要接触区与示范杯柄一致",
+              "failure_code": "wrong_object_region",
+              "failure_label_zh": "接触了明显不同的物体部位",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "C.contact_sequence",
+              "label_zh": "必要的接触转换依次发生",
+              "failure_code": "missing_contact_transition",
+              "failure_label_zh": "必要接触未发生或顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "M": [
+            {
+              "id": "M.object_path",
+              "label_zh": "物体的大致运动路径、方向与示范一致",
+              "failure_code": "object_path_deviation",
+              "failure_label_zh": "物体路径或方向明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "M.hand_phase",
+              "label_zh": "放置和撤手的动作顺序与示范一致",
+              "failure_code": "phase_order_deviation",
+              "failure_label_zh": "动作先后顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution",
+                  "timing"
+                ]
+              ]
+            }
+          ]
+        },
+        "setup_issue": {
+          "code": "reference_setup",
+          "affected_dimensions": [
+            "P"
+          ],
+          "label_zh": "该片段要求起始已持杯，现有共用仿真初态未形成手部承载。任务完成项待修复，接触方式和动作可提供独立诊断。"
+        },
+        "title_zh": "杯子 · 搬运并放下"
+      },
+      "timeline": {
+        "time_policy": "identity",
+        "source_video_offset_s": 0.0,
+        "execution_video_offset_s": 0.0,
+        "source_duration_s": 5.0,
+        "execution_duration_s": 5.033333333333333,
+        "preparation_s": 0.0,
+        "uniform_scale": 1.0,
+        "score_window_s": [
+          0,
+          4.966677401
+        ],
+        "physics_dt_s": 0.005,
+        "native_trace_end_s": 4.969999999999916,
+        "source_time_origin": "native_capture_clock"
+      },
+      "trace_binding_hash": "sha256:39904fc94c77a7f3a2082755e863aad346b56074cbdf5ce6036bdbbac3495e77",
+      "media_hashes": {
+        "source": "sha256:6a370606d0fbf4ad85d9da4762009fe20b7c95d12c7dc44f293257e9958e095a",
+        "execution": "sha256:3b7e85fa05fd6bb91516cb8af85df4f4202862cb7f6ce51c3caa615fee26cb53",
+        "timestamps": "sha256:4de1e11014c7dd24bf8af5cccf6bc8dd3e8f6566224bce3e843a17df8d35949f",
+        "physical_evidence": "sha256:64adeb93853a07fe7eba8f064381079d540688f578887a8ca065cd8b1ab9b447",
+        "source_timestamps": "sha256:1207d07ba9f4f4a543365347ae36a6e82f7354867c2c273c87af3f730ce22f6a",
+        "execution_closeup": "sha256:fe26700bb97a940d36c411abb2c8547fa62e1e8ef47d7f3fb1b2478ab8a6713c"
+      },
+      "task_card_hash": "sha256:557fab9fb7558b504948b079d10289e416fd2aeaca40833f87ab8befbc396452",
+      "evidence_hash": "sha256:b24c8a3a9095c259d29449629826282ff1a0cb2f3b60eb58d716bf0f35469db1",
+      "time_mapping_hash": "sha256:90dcef436e6c2e9d28518153096419e81735ea44f9008f3286b930e3e0a307c9",
+      "case_fingerprint": "sha256:ef0c6e4081b40b40b41a4e0884cc132d88dee849d327238f9ece7909d334e8b4"
+    },
+    {
+      "blind_id": "a64137cb30be6ced",
+      "task": {
+        "title": "杯子 · 搬运并放下",
+        "description": "左手握住杯柄，将起始时已握住的杯子移到桌面，放稳后撤手。右手操作的是另一件物体。",
+        "rubric": {
+          "functional": "依次观察搬运、在目标桌面上释放、放下后保持稳定。",
+          "contact": "核对抓握的手和接触部位，尤其是是否握住杯柄。",
+          "motion": "比较杯子的移动路径、方向，以及放下后的撤手动作。"
+        }
+      },
+      "media": {
+        "source": "media/reference-02.mp4",
+        "execution": "media/a64137cb30be6ced.execution.mp4",
+        "timestamps": "media/a64137cb30be6ced.timestamps.jsonl",
+        "physical_evidence": "media/a64137cb30be6ced.physical_evidence.jsonl",
+        "source_timestamps": "media/a64137cb30be6ced.source_timestamps.jsonl",
+        "execution_closeup": "media/a64137cb30be6ced.execution_closeup.mp4"
+      },
+      "task_card": {
+        "protocol_id": "ego-wm-v0.3-dev-review",
+        "profile_id": "contact_regions_diagnostic_v1",
+        "scope_id": "full_episode",
+        "review_mode": "diagnostic",
+        "required_dimensions": [
+          "V",
+          "P",
+          "C",
+          "M"
+        ],
+        "allowed_correspondence_ids": [
+          "sharpa_anatomical_roles_v1"
+        ],
+        "task_goal_zh": "把已持有的杯子搬到目标桌面，解除手部承载，并放稳。",
+        "source_scope": "本片段从已持杯开始，审阅搬运、放置和撤手。",
+        "demonstration_constraints_zh": "示范使用左手接触杯柄。右手操作的另一物体在任务范围外。",
+        "reference_eligibility": {
+          "strict_core": false,
+          "reason": "开发材料。源片段无法独立确认细指法、接触力与所有运动容差。"
+        },
+        "not_applicable_requirements": [
+          "C.initial_grasp",
+          "M.initial_approach"
+        ],
+        "description": "左手握住杯柄，将起始时已握住的杯子移到桌面，放稳后撤手。右手操作的是另一件物体。",
+        "requirements": {
+          "P": [
+            {
+              "id": "P.carry",
+              "label_zh": "已持有的杯子完成搬运",
+              "failure_code": "carry_missing",
+              "failure_label_zh": "未完成搬运",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.target_support",
+              "label_zh": "杯子放在题目指定的桌面区域",
+              "failure_code": "wrong_target_support",
+              "failure_label_zh": "没有放到目标区域",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                4.666677401,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.terminal_release",
+              "label_zh": "结束时手已解除杯子承载",
+              "failure_code": "no_release",
+              "failure_label_zh": "结束时手仍承载杯子",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                4.666677401,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.terminal_stability",
+              "label_zh": "放下后在末段保持稳定",
+              "failure_code": "placement_unstable",
+              "failure_label_zh": "末段未保持稳定",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                4.666677401,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "C": [
+            {
+              "id": "C.hand_role",
+              "label_zh": "使用示范要求的手和分工",
+              "failure_code": "wrong_hand_role",
+              "failure_label_zh": "使用了另一只手或交换分工",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.hand_region",
+              "label_zh": "可见的手指或手掌接触区域与示范一致",
+              "failure_code": "wrong_hand_region",
+              "failure_label_zh": "手指或手掌接触区域明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.object_region",
+              "label_zh": "主要接触区与示范杯柄一致",
+              "failure_code": "wrong_object_region",
+              "failure_label_zh": "接触了明显不同的物体部位",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "C.contact_sequence",
+              "label_zh": "必要的接触转换依次发生",
+              "failure_code": "missing_contact_transition",
+              "failure_label_zh": "必要接触未发生或顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "M": [
+            {
+              "id": "M.object_path",
+              "label_zh": "物体的大致运动路径、方向与示范一致",
+              "failure_code": "object_path_deviation",
+              "failure_label_zh": "物体路径或方向明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "M.hand_phase",
+              "label_zh": "放置和撤手的动作顺序与示范一致",
+              "failure_code": "phase_order_deviation",
+              "failure_label_zh": "动作先后顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                4.966677401
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution",
+                  "timing"
+                ]
+              ]
+            }
+          ]
+        },
+        "setup_issue": {
+          "code": "reference_setup",
+          "affected_dimensions": [
+            "P"
+          ],
+          "label_zh": "该片段要求起始已持杯，现有共用仿真初态未形成手部承载。任务完成项待修复，接触方式和动作可提供独立诊断。"
+        },
+        "title_zh": "杯子 · 搬运并放下"
+      },
+      "timeline": {
+        "time_policy": "identity",
+        "source_video_offset_s": 0.0,
+        "execution_video_offset_s": 0.0,
+        "source_duration_s": 5.0,
+        "execution_duration_s": 5.033333333333333,
+        "preparation_s": 0.0,
+        "uniform_scale": 1.0,
+        "score_window_s": [
+          0,
+          4.966677401
+        ],
+        "physics_dt_s": 0.005,
+        "native_trace_end_s": 4.969999999999916,
+        "source_time_origin": "native_capture_clock"
+      },
+      "trace_binding_hash": "sha256:c3ea328d185846fdc7204ffef459bafbee8e0de2325071eca5297b335e91f282",
+      "media_hashes": {
+        "source": "sha256:6a370606d0fbf4ad85d9da4762009fe20b7c95d12c7dc44f293257e9958e095a",
+        "execution": "sha256:391417dabed581b0c4e688ed921bb5fd936037a3d28b70284d323ff1445b233b",
+        "timestamps": "sha256:4de1e11014c7dd24bf8af5cccf6bc8dd3e8f6566224bce3e843a17df8d35949f",
+        "physical_evidence": "sha256:2e85f3277be2f7e2fd3acbba50ba2f4a737d68cfe5fda4adeaa6521cc8cc8745",
+        "source_timestamps": "sha256:1207d07ba9f4f4a543365347ae36a6e82f7354867c2c273c87af3f730ce22f6a",
+        "execution_closeup": "sha256:d931c44d32b4d1de6f63cbe87522fb708e0dcbefeeb945a6cd57d507dc7cf952"
+      },
+      "task_card_hash": "sha256:557fab9fb7558b504948b079d10289e416fd2aeaca40833f87ab8befbc396452",
+      "evidence_hash": "sha256:ae8aa3f914907555213122ff4477d1f06b56adfc7eadef9a0b393104778e04cb",
+      "time_mapping_hash": "sha256:90dcef436e6c2e9d28518153096419e81735ea44f9008f3286b930e3e0a307c9",
+      "case_fingerprint": "sha256:f178d5dd9d2cddaa6ca7ad4c6500598067cbac05a4a2dd1e02dc2041c5856a59"
+    },
+    {
+      "blind_id": "e0fa7c9723075fb6",
+      "task": {
+        "title": "香蕉 · 提起并保持",
+        "description": "右手靠近香蕉，将它提离桌面，并保持到动作结束。",
+        "rubric": {
+          "functional": "观察香蕉何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
+          "contact": "核对抓握的手、手指和香蕉上的接触部位。看不清的要素可填「无法判断」。",
+          "motion": "比较人手靠近香蕉的过程和香蕉的运动路径。"
+        }
+      },
+      "media": {
+        "source": "media/reference-03.mp4",
+        "execution": "media/e0fa7c9723075fb6.execution.mp4",
+        "timestamps": "media/e0fa7c9723075fb6.timestamps.jsonl",
+        "physical_evidence": "media/e0fa7c9723075fb6.physical_evidence.jsonl",
+        "source_timestamps": "media/e0fa7c9723075fb6.source_timestamps.jsonl",
+        "execution_closeup": "media/e0fa7c9723075fb6.execution_closeup.mp4"
+      },
+      "task_card": {
+        "protocol_id": "ego-wm-v0.3-dev-review",
+        "profile_id": "contact_regions_diagnostic_v1",
+        "scope_id": "full_episode",
+        "review_mode": "diagnostic",
+        "required_dimensions": [
+          "V",
+          "P",
+          "C",
+          "M"
+        ],
+        "allowed_correspondence_ids": [
+          "sharpa_anatomical_roles_v1"
+        ],
+        "task_goal_zh": "把指定物体提离原支撑面，并在规定末段由机器人持稳。",
+        "source_scope": "审阅片段中的接近、抓取、提起及末段保持。",
+        "demonstration_constraints_zh": "示范使用右手。核对可见的手指或手掌区域与物体接触区域。",
+        "reference_eligibility": {
+          "strict_core": false,
+          "reason": "开发材料。源片段无法独立确认细指法、接触力与所有运动容差。"
+        },
+        "not_applicable_requirements": [
+          "P.terminal_release"
+        ],
+        "description": "右手靠近香蕉，将它提离桌面，并保持到动作结束。",
+        "requirements": {
+          "P": [
+            {
+              "id": "P.lift",
+              "label_zh": "物体确实离开原支撑面",
+              "failure_code": "required_lift_missing",
+              "failure_label_zh": "未提起物体",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.terminal_hold",
+              "label_zh": "片段末段持续持稳物体",
+              "failure_code": "terminal_hold_failed",
+              "failure_label_zh": "结束前掉落或失去持有",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                1.8666666666666667,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "C": [
+            {
+              "id": "C.hand_role",
+              "label_zh": "使用示范要求的手和分工",
+              "failure_code": "wrong_hand_role",
+              "failure_label_zh": "使用了另一只手或交换分工",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.hand_region",
+              "label_zh": "可见的手指或手掌接触区域与示范一致",
+              "failure_code": "wrong_hand_region",
+              "failure_label_zh": "手指或手掌接触区域明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.object_region",
+              "label_zh": "接触物体上的对应区域",
+              "failure_code": "wrong_object_region",
+              "failure_label_zh": "接触了明显不同的物体部位",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "C.contact_sequence",
+              "label_zh": "必要的接触转换依次发生",
+              "failure_code": "missing_contact_transition",
+              "failure_label_zh": "必要接触未发生或顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "M": [
+            {
+              "id": "M.object_path",
+              "label_zh": "物体的大致运动路径、方向与示范一致",
+              "failure_code": "object_path_deviation",
+              "failure_label_zh": "物体路径或方向明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "M.hand_phase",
+              "label_zh": "接近和抬起的动作顺序与示范一致",
+              "failure_code": "phase_order_deviation",
+              "failure_label_zh": "动作先后顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution",
+                  "timing"
+                ]
+              ]
+            }
+          ]
+        },
+        "title_zh": "香蕉 · 提起并保持"
+      },
+      "timeline": {
+        "time_policy": "identity",
+        "source_video_offset_s": 0.0,
+        "execution_video_offset_s": 0.0,
+        "source_duration_s": 2.4,
+        "execution_duration_s": 2.4,
+        "preparation_s": 0.0,
+        "uniform_scale": 1.0,
+        "score_window_s": [
+          0,
+          2.3666666666666667
+        ],
+        "physics_dt_s": 0.005,
+        "native_trace_end_s": 2.3699999999999717,
+        "source_time_origin": "source_nominal_30_hz"
+      },
+      "trace_binding_hash": "sha256:d7bd14fd4c13ba016ed41895d22df78746eb313be9b4cec9df5b2f64dde3b74f",
+      "media_hashes": {
+        "source": "sha256:3235a406aaefab18cef9fcde06f15da1a3afc42bd6f015b64a20146886c634a7",
+        "execution": "sha256:49845968acbd7618e812b6b7db8f87cb748f952bb4952cc9fe72e5b921f86afc",
+        "timestamps": "sha256:7283c088070205a3337f78e4c9fab86a0ad392884b767bad469dda224fa8fab4",
+        "physical_evidence": "sha256:6a5531f188598c355b35eaaa505133742d2786df06462f06ee217a75340d3022",
+        "source_timestamps": "sha256:452e1e068f4bae63677474ba9d7db89618cd92176e3667d2de56c4bf8c0baac0",
+        "execution_closeup": "sha256:183b52001e178d10cb7a2ddf240e5981cb3434224848e393d238863b9f7a3146"
+      },
+      "task_card_hash": "sha256:c7dd1a28310ea697aaa99032c360faead73af3633b52d6e51f2673ec9dc10834",
+      "evidence_hash": "sha256:6ae26e94bf3fdcd03c5673e4aba0eba8c418746c5776deee44c709fda22f3b54",
+      "time_mapping_hash": "sha256:b5da8ad05cba90aac00fa00a07594fb77ff3929618cbf7ecf517c3bab6a3d324",
+      "case_fingerprint": "sha256:46f8d7d3b1669a1d7fab7e32669e96e18dbb32b7af64b682988cd0aa638bc0b6"
+    },
+    {
+      "blind_id": "f13ed1bcaa569c14",
+      "task": {
+        "title": "香蕉 · 提起并保持",
+        "description": "右手靠近香蕉，将它提离桌面，并保持到动作结束。",
+        "rubric": {
+          "functional": "观察香蕉何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
+          "contact": "核对抓握的手、手指和香蕉上的接触部位。看不清的要素可填「无法判断」。",
+          "motion": "比较人手靠近香蕉的过程和香蕉的运动路径。"
+        }
+      },
+      "media": {
+        "source": "media/reference-03.mp4",
+        "execution": "media/f13ed1bcaa569c14.execution.mp4",
+        "timestamps": "media/f13ed1bcaa569c14.timestamps.jsonl",
+        "physical_evidence": "media/f13ed1bcaa569c14.physical_evidence.jsonl",
+        "source_timestamps": "media/f13ed1bcaa569c14.source_timestamps.jsonl",
+        "execution_closeup": "media/f13ed1bcaa569c14.execution_closeup.mp4"
+      },
+      "task_card": {
+        "protocol_id": "ego-wm-v0.3-dev-review",
+        "profile_id": "contact_regions_diagnostic_v1",
+        "scope_id": "full_episode",
+        "review_mode": "diagnostic",
+        "required_dimensions": [
+          "V",
+          "P",
+          "C",
+          "M"
+        ],
+        "allowed_correspondence_ids": [
+          "sharpa_anatomical_roles_v1"
+        ],
+        "task_goal_zh": "把指定物体提离原支撑面，并在规定末段由机器人持稳。",
+        "source_scope": "审阅片段中的接近、抓取、提起及末段保持。",
+        "demonstration_constraints_zh": "示范使用右手。核对可见的手指或手掌区域与物体接触区域。",
+        "reference_eligibility": {
+          "strict_core": false,
+          "reason": "开发材料。源片段无法独立确认细指法、接触力与所有运动容差。"
+        },
+        "not_applicable_requirements": [
+          "P.terminal_release"
+        ],
+        "description": "右手靠近香蕉，将它提离桌面，并保持到动作结束。",
+        "requirements": {
+          "P": [
+            {
+              "id": "P.lift",
+              "label_zh": "物体确实离开原支撑面",
+              "failure_code": "required_lift_missing",
+              "failure_label_zh": "未提起物体",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "P.terminal_hold",
+              "label_zh": "片段末段持续持稳物体",
+              "failure_code": "terminal_hold_failed",
+              "failure_label_zh": "结束前掉落或失去持有",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                1.8666666666666667,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "C": [
+            {
+              "id": "C.hand_role",
+              "label_zh": "使用示范要求的手和分工",
+              "failure_code": "wrong_hand_role",
+              "failure_label_zh": "使用了另一只手或交换分工",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "execution"
+                ],
+                [
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.hand_region",
+              "label_zh": "可见的手指或手掌接触区域与示范一致",
+              "failure_code": "wrong_hand_region",
+              "failure_label_zh": "手指或手掌接触区域明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            },
+            {
+              "id": "C.object_region",
+              "label_zh": "接触物体上的对应区域",
+              "failure_code": "wrong_object_region",
+              "failure_label_zh": "接触了明显不同的物体部位",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "C.contact_sequence",
+              "label_zh": "必要的接触转换依次发生",
+              "failure_code": "missing_contact_transition",
+              "failure_label_zh": "必要接触未发生或顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ],
+                [
+                  "source",
+                  "physics",
+                  "timing"
+                ]
+              ]
+            }
+          ],
+          "M": [
+            {
+              "id": "M.object_path",
+              "label_zh": "物体的大致运动路径、方向与示范一致",
+              "failure_code": "object_path_deviation",
+              "failure_label_zh": "物体路径或方向明显不同",
+              "failure_evidence": "event_anchor",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution"
+                ]
+              ]
+            },
+            {
+              "id": "M.hand_phase",
+              "label_zh": "接近和抬起的动作顺序与示范一致",
+              "failure_code": "phase_order_deviation",
+              "failure_label_zh": "动作先后顺序明显不同",
+              "failure_evidence": "window",
+              "window_s": [
+                0,
+                2.3666666666666667
+              ],
+              "evidence_options": [
+                [
+                  "source",
+                  "execution",
+                  "timing"
+                ]
+              ]
+            }
+          ]
+        },
+        "title_zh": "香蕉 · 提起并保持"
+      },
+      "timeline": {
+        "time_policy": "identity",
+        "source_video_offset_s": 0.0,
+        "execution_video_offset_s": 0.0,
+        "source_duration_s": 2.4,
+        "execution_duration_s": 2.4,
+        "preparation_s": 0.0,
+        "uniform_scale": 1.0,
+        "score_window_s": [
+          0,
+          2.3666666666666667
+        ],
+        "physics_dt_s": 0.005,
+        "native_trace_end_s": 2.3699999999999717,
+        "source_time_origin": "source_nominal_30_hz"
+      },
+      "trace_binding_hash": "sha256:add70cfafd7eb54277de535867bf2b9e0dc3d04a43abc20d934318cca80fb892",
+      "media_hashes": {
+        "source": "sha256:3235a406aaefab18cef9fcde06f15da1a3afc42bd6f015b64a20146886c634a7",
+        "execution": "sha256:0039df0181c357a3d8e903505041333c4dae85f56738ab42d4a7f807283a4902",
+        "timestamps": "sha256:7283c088070205a3337f78e4c9fab86a0ad392884b767bad469dda224fa8fab4",
+        "physical_evidence": "sha256:97efd65f85178ab17a8656872407de6632c154c3d197b4620df2cbbe2474f9fd",
+        "source_timestamps": "sha256:452e1e068f4bae63677474ba9d7db89618cd92176e3667d2de56c4bf8c0baac0",
+        "execution_closeup": "sha256:6726e854867bdf7b50901758626abd3ff0b4bca7e2e47c31e7448c07089b5810"
+      },
+      "task_card_hash": "sha256:c7dd1a28310ea697aaa99032c360faead73af3633b52d6e51f2673ec9dc10834",
+      "evidence_hash": "sha256:3c0708b465b3b052095a8cd904945cf5acc377f5c084e758e106d03662ccf556",
+      "time_mapping_hash": "sha256:b5da8ad05cba90aac00fa00a07594fb77ff3929618cbf7ecf517c3bab6a3d324",
+      "case_fingerprint": "sha256:c1ece2c01d060d65a670ab79042657854d6b3c5401dd97be21afcaa367030aa9"
+    }
+  ],
+  "review_schema_version": 2,
+  "assignment_id": "ego-wm-e0-v2-independent",
+  "assignment_role": "independent",
+  "reviewer_ids": [
+    "R1",
+    "R2"
+  ]
+}

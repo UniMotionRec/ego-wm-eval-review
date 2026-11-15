@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="./style.css">
   <script type="module" src="./app.js"></script>
 </head>
-<body>
+<body class="review-v2">
   <a class="skip" href="#workspace">跳到审阅</a>
   <header class="masthead">
     <div class="mast-inner">
@@ -25,16 +25,17 @@
       <div class="batch-panel">
         <div class="overline" id="batch-kind">批次</div>
         <h2 id="batch-title">正在载入</h2>
-        <div class="progress-line"><span id="progress-text">0 / 0 已完成</span><span id="progress-percent"></span></div>
-        <progress id="progress" value="0" max="1" aria-label="审阅完成度"></progress>
+        <div class="progress-line"><span id="progress-text">已处理 0 / 0</span></div>
+        <progress id="progress" value="0" max="1" aria-label="已处理进度"></progress>
+        <p id="progress-states" class="batch-states"></p>
       </div>
       <div class="queue">
-        <div class="queue-header"><h3>任务列表</h3><label class="filter"><input id="filter" type="checkbox"> 只看未完成</label></div>
+        <div class="queue-header"><h3>任务列表</h3><label class="filter"><input id="filter" type="checkbox"> 只看待处理</label></div>
         <ol id="case-list"></ol>
       </div>
       <div class="profile">
         <label for="reviewer">审阅人编号</label>
-        <input id="reviewer" type="text" placeholder="例如你的 GitHub 用户名" autocomplete="off" maxlength="60">
+        <select id="reviewer" disabled><option value="">选择分配给你的编号</option></select>
         <p>用同一编号续审。草稿自动保存在本浏览器。</p>
       </div>
     </aside>
@@ -44,13 +45,18 @@
         <div>
           <div class="overline" id="case-counter">审阅任务</div>
           <h1 id="case-title">载入审阅素材</h1>
-          <p id="case-description"></p>
         </div>
         <div class="navigation">
           <button id="previous" class="secondary" type="button" aria-label="上一条" disabled>← <span>上一条</span></button>
           <button id="next" class="secondary" type="button" aria-label="下一条" disabled><span>下一条</span> →</button>
         </div>
       </section>
+      <dl id="task-brief" class="task-brief" hidden>
+        <div><dt>任务目标</dt><dd id="task-goal"></dd></div>
+        <div><dt>本条范围</dt><dd id="task-scope"></dd></div>
+        <div><dt>示范方式</dt><dd id="task-demonstration"></dd></div>
+        <div id="adaptation-row" hidden><dt>允许适配</dt><dd id="task-adaptation"></dd></div>
+      </dl>
       <div class="mobile-layout"><button id="video-layout" class="secondary" type="button" aria-controls="viewers" aria-pressed="false">上下排列</button></div>
       <section id="viewers" class="viewers" aria-label="同步视频">
         <article class="media-panel">
@@ -61,7 +67,11 @@
           </div>
         </article>
         <article class="media-panel">
-          <div class="media-header"><h2>机器人回放</h2><span id="execution-time">0.00 s</span></div>
+          <div class="media-header"><h2>机器人回放</h2><label id="view-select-label" class="view-select" hidden>
+            <select id="view-select" aria-label="机器人回放视角">
+              <option value="execution">总览</option><option value="execution_closeup">手物近景</option>
+            </select>
+          </label><span id="execution-time">0.00 s</span></div>
           <div class="media-stage">
             <video id="execution" controls playsinline preload="metadata" aria-label="机器人执行视频"></video>
             <p id="execution-empty" class="media-empty" hidden>此条缺少回放视频</p>
@@ -69,40 +79,53 @@
         </article>
       </section>
       <section class="transport" aria-label="同步播放控制">
-        <button id="play" class="secondary" type="button">同时播放</button>
+        <button id="play" class="secondary" type="button">播放</button>
         <button id="rewind" class="icon-button" type="button" title="回退 1 秒" aria-label="回退 1 秒">−1 s</button>
         <div class="seek-wrap"><input id="seek" type="range" min="0" max="1" step="0.001" value="0" aria-label="执行时间轴"><output id="position" for="seek">0.00 s</output></div>
         <button id="forward" class="icon-button" type="button" title="前进 1 秒" aria-label="前进 1 秒">+1 s</button>
         <label class="speed"><span>速度</span><select id="rate" aria-label="播放速度"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option></select></label>
         <label class="sync"><input id="sync" type="checkbox" checked> 同步</label>
       </section>
+      <div class="frame-tools">
+        <button id="frame-prev" class="secondary" type="button" disabled>前一帧</button>
+        <button id="frame-next" class="secondary" type="button" disabled>后一帧</button>
+        <span id="timeline-status" class="timeline-status">正在核对时间索引。</span>
+      </div>
       <details id="evidence-panel" class="physical" hidden>
         <summary>查看当前帧的物理记录</summary>
-        <p id="physical-status">展开后载入。</p>
+        <p id="physical-status"></p>
+        <label id="physical-step-control" class="physical-step" hidden>独立查看求解器记录
+          <input id="physical-step" type="range" min="0" max="0" value="0" aria-label="物理步编号">
+        </label>
         <div id="physical-table"></div>
       </details>
       <section class="judgment" aria-labelledby="judgment-title">
-        <div class="judgment-head"><div><h2 id="judgment-title">独立判定</h2><p>先看完整视频。证据时间以机器人回放为准。</p></div><span id="save-status" class="save-status" aria-live="polite"></span></div>
+        <div class="judgment-head"><div><h2 id="judgment-title">独立判定</h2><p id="judgment-hint">按本条必要要求判断。</p></div><span id="save-status" class="save-status" aria-live="polite"></span></div>
         <form id="review-form" novalidate>
           <div id="dimensions"></div>
-          <div class="form-footer"><p id="completion-error" class="error" aria-live="polite"></p><button id="complete" class="primary" type="submit">完成并下一条 →</button></div>
+          <div class="review-actions">
+            <button id="load-problem" class="link-button" type="button">素材或判据有问题</button>
+            <button id="later" class="link-button" type="button">稍后再看</button>
+          </div>
+          <p id="issue-status" class="issue-status" role="status" hidden></p>
+          <div class="form-footer"><p id="completion-error" class="error" aria-live="polite"></p><button id="complete" class="primary" type="submit" disabled>保存并下一条 →</button></div>
         </form>
       </section>
+      <details id="case-details" class="case-details" hidden><summary>素材版本与证据状态</summary><dl id="case-identity"></dl></details>
     </main>
   </div>
   <dialog id="help">
     <div class="dialog-head"><h2>审阅说明</h2><form method="dialog"><button class="icon-button" type="submit" aria-label="关闭说明">×</button></form></div>
     <ol>
-      <li>首页已载入六条开发样例。输入你的审阅编号，例如 GitHub 用户名。</li>
-      <li>对照人类示范和机器人回放，分别判断任务完成、接触方式、动作过程。点击「记时间」引用当前回放时间。</li>
-      <li>点击符合实际观察的快捷依据，也可以自行填写。能判断时记下对应时间。完成后一次导出文件交回组织者。</li>
+      <li>选择分配给你的编号，先看本条范围和必要要求。</li>
+      <li>全部必要要求都满足，直接点「已完成」或「符合」。存在明确反例时，选择对应的偏离原因。关键内容看不清时，选择「证据不足」和原因。</li>
+      <li>时间按选中的要求自动记录。发现错片、任务冲突或映射故障时，点「素材或判据有问题」。完成后一次导出文件交回组织者。</li>
     </ol>
-    <p>首页批次刷新后可从上次停留的位置继续。</p>
-    <p>收到分歧复核任务时，页面只显示需要复核的判断项。</p>
-    <p><kbd>空格</kbd> 播放/暂停，<kbd>J</kbd> <kbd>L</kbd> 前后跳 1 秒。填写表单时快捷键暂停。</p>
+    <p>提起并保持时末尾持物，符合持物要求。放置任务要求解除手部承载。能确认换手时，即使看不清细指法，也可以判接触偏离。</p>
+    <p><kbd>空格</kbd> 播放/暂停，<kbd>J</kbd> <kbd>L</kbd> 前后跳 1 秒，<kbd>,</kbd> <kbd>.</kbd> 逐帧。</p>
     <div class="import-actions">
       <button id="open-default" class="secondary" type="button">打开开发盲审批次</button>
-      <button id="open-demo" class="secondary" type="button">打开练习批次</button>
+      <a class="link-button" href="./legacy.html">打开旧版对照</a>
     </div>
     <div class="import-actions">
       <button class="secondary" id="import-zip" type="button">导入其他审阅包</button>
@@ -111,6 +134,23 @@
     <input type="file" id="zip-file" accept=".zip,application/zip" hidden>
     <input type="file" id="folder-files" webkitdirectory multiple hidden>
     <p><a href="https://github.com/UniMotionRec/ego-wm-eval-review/blob/main/docs/review/ATTRIBUTION.md" target="_blank" rel="noopener">示范视频来源与许可证</a></p>
+  </dialog>
+  <dialog id="problem-dialog">
+    <div class="dialog-head"><h2>素材或判据有问题</h2><form method="dialog"><button class="icon-button" type="submit" aria-label="关闭问题报告">×</button></form></div>
+    <form id="problem-form">
+      <label>遇到的问题<select id="problem-type" required>
+        <option value="">请选择</option>
+        <option value="media_unavailable">视频或记录打不开、损坏</option>
+        <option value="case_mismatch">视频和题目不是同一段动作</option>
+        <option value="timeline_fault">两段视频或记录时间无法对应</option>
+        <option value="scope_conflict">任务要求超出源片段范围</option>
+        <option value="rule_conflict">任务说明互相矛盾</option>
+        <option value="reference_unobservable">必要部位看不清</option>
+        <option value="other_material_issue">其他材料或规则问题</option>
+      </select></label>
+      <label>备注（可选）<textarea id="problem-note" rows="2" maxlength="500"></textarea></label>
+      <button class="primary" type="submit">记录问题</button>
+    </form>
   </dialog>
   <noscript><p class="notice">请在浏览器启用 JavaScript 后打开工作台。</p></noscript>
 </body>

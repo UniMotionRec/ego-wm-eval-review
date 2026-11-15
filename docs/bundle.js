@@ -1,3 +1,5 @@
+import { checkCaseIdentity, dimensions as v2Dimensions, validateV2Shape } from "./review-contract.js";
+
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const types = {
   mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime",
@@ -12,30 +14,36 @@ function relative(path) {
 }
 
 export function validateManifest(data, has = () => true) {
-  if (data?.schema_version !== 1 || typeof data.batch_id !== "string" ||
+  if (![1, 2].includes(data?.schema_version) || typeof data.batch_id !== "string" ||
       !/^[A-Za-z0-9_-]{1,100}$/.test(data.batch_id) ||
       !Array.isArray(data.cases) || !data.cases.length) {
     throw new Error("审阅包缺少有效的批次或任务清单。");
   }
+  const v2 = data.schema_version === 2;
   const seen = new Set();
   for (const row of data.cases) {
     if (typeof row?.blind_id !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(row.blind_id) ||
-        seen.has(row.blind_id) || !row.task || !row.media || typeof row.media !== "object") {
+        seen.has(row.blind_id) || !(v2 ? row.task_card : row.task) || !row.media ||
+        typeof row.media !== "object" || Array.isArray(row.media)) {
       throw new Error("任务编号重复或清单格式不正确。");
     }
     seen.add(row.blind_id);
     if (row.review_dimensions != null) {
       const assigned = row.review_dimensions;
       if (data.assignment_role !== "arbiter" || !Array.isArray(assigned) || assigned.length === 0 ||
-        assigned.some((key) => !dimensions.includes(key)) || new Set(assigned).size !== assigned.length) {
+          assigned.some((key) => !(v2 ? v2Dimensions : dimensions).includes(key)) ||
+          new Set(assigned).size !== assigned.length) {
         throw new Error("分歧复核任务缺少有效的判断项。");
       }
     }
-    for (const key of ["source", "execution", "source_captions", "execution_captions", "timestamps", "physical_evidence"]) {
-      const value = row.media[key];
-      if (value != null && (!relative(value) || !has(value))) {
+    for (const [key, value] of Object.entries(row.media)) {
+      if (value != null && (!relative(value) || !v2 && !has(value))) {
         throw new Error(`任务 ${row.blind_id} 的 ${key} 文件缺失。`);
       }
+    }
+    if (v2) {
+      validateV2Shape(data, row);
+      continue;
     }
     const timeline = row.timeline ?? {};
     if (Object.values(timeline).some((t) => !Number.isFinite(t) || t < 0) || timeline.uniform_scale === 0) {
@@ -56,7 +64,11 @@ async function localProvider(entries, read) {
   const [key, prefix] = findManifest(entries.keys());
   const data = JSON.parse(await (await read(key)).text());
   const manifest = validateManifest(data, (path) => entries.has(prefix + path));
-  return { manifest, fetchBlob: (path) => read(prefix + path), kind: "local" };
+  if (manifest.schema_version === 2) await Promise.all(manifest.cases.map(checkCaseIdentity));
+  return { manifest, kind: "local", fetchBlob: (path) => {
+    if (!entries.has(prefix + path)) throw new Error("审阅包中的这个文件缺失。");
+    return read(prefix + path);
+  } };
 }
 
 export function fromFolder(files) {
@@ -126,10 +138,11 @@ export async function fromZip(file) {
 }
 
 export async function builtIn(kind = "review") {
-  const base = new URL(kind === "demo" ? "./demo/" : "./review/", import.meta.url);
+  const base = new URL({ demo: "./demo/", legacy: "./review/", review: "./review-v2/" }[kind], import.meta.url);
   const response = await fetch(new URL("review-manifest.json", base));
   if (!response.ok) throw new Error("批次暂时无法载入。请刷新页面重试。");
   const manifest = validateManifest(await response.json());
+  if (manifest.schema_version === 2) await Promise.all(manifest.cases.map(checkCaseIdentity));
   const cache = new Map();
   async function fetchBlob(path) {
     if (!cache.has(path)) {
@@ -143,5 +156,5 @@ export async function builtIn(kind = "review") {
     }
     return cache.get(path);
   }
-  return { manifest, fetchBlob, kind };
+  return { manifest, fetchBlob, kind: kind === "legacy" ? "review" : kind };
 }

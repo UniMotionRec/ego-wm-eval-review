@@ -1,750 +1,774 @@
 import { builtIn, fromFolder, fromZip } from "./bundle.js";
+import { assignedDimensions, channels, dimensions, evidenceAlternative, requirementWindow, skippedBy,
+  statuses, unknownReasons } from "./review-contract.js";
+import { ReviewPlayer } from "./review-player.js";
+import { addTrialMarker, ReviewMetrics } from "./review-metrics.js";
+import { installTrialControls, loadTrialPage } from "./a1.js";
 
-const nodes = Object.fromEntries([...document.querySelectorAll("[id]")].map((node) => [node.id, node]));
-const vids = { source: nodes.source, execution: nodes.execution };
-const choices = [
-  ["functional", "P", "任务完成", "指定对象是否完成目标？检查必要事件、支撑、释放和末尾保持。"],
-  ["contact", "C", "接触方式", "核对手别、指腹、物体部位与接触顺序。"],
-  ["motion", "M", "动作过程", "核对运动路径、掌部朝向、关键阶段和时序。"],
-];
-const answers = [["pass", "符合"], ["fail", "偏离"], ["unknown", "无法判断"]];
-const quickReasons = {
-  functional: {
-    pass: ["必要动作和结束状态均符合要求"],
-    fail: ["缺少必要动作", "结束状态或保持时间不符合要求", "物体掉落或失控"],
-    unknown: ["物体或支撑面被遮挡", "关键阶段缺失", "执行证据不清楚"],
-  },
-  contact: {
-    pass: ["手别、接触部位和顺序均符合要求"],
-    fail: ["手别或手指不同", "接触的物体部位不同", "接触顺序不同"],
-    unknown: ["手指被遮挡", "物体接触部位看不清", "接触记录缺失"],
-  },
-  motion: {
-    pass: ["动作路径和关键阶段的顺序一致"],
-    fail: ["运动方向或路径不同", "掌部朝向不同", "动作顺序或时序不同"],
-    unknown: ["运动轨迹不完整", "关键时刻看不清", "时间轴证据缺失"],
-  },
+const ui = Object.fromEntries([...document.querySelectorAll("[id]")].map((node) => [node.id, node]));
+const state = { provider: null, index: 0, request: 0, bucket: {}, draft: null };
+const labels = { P: "任务目标", C: "接触策略", M: "运动过程" };
+const verdictLabels = {
+  P: { pass: "已完成", fail: "明确未完成", unknown: "证据不足" },
+  C: { pass: "符合", fail: "存在明确偏离", unknown: "证据不足" },
+  M: { pass: "符合", fail: "存在明确偏离", unknown: "证据不足" },
 };
-const state = { provider: null, index: 0, drafts: {}, urls: [], generation: 0, request: 0,
-  physical: null, frames: null, loadingPhysical: false };
-const inputs = {};
-let linked = false;
-let storageAvailable = true;
-
-function readStorage(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
-  catch { return fallback; }
-}
-function writeStorage(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
-  catch { storageAvailable = false; return false; }
-}
-const profileKey = "ego-wm-review/v1/reviewer";
+const issueChannels = {
+  case_mismatch: channels, scope_conflict: channels, rule_conflict: channels,
+  timeline_fault: ["timing"], other_material_issue: [],
+};
+const identityIssues = new Set(["case_mismatch", "scope_conflict", "rule_conflict"]);
+const identityFields = ["case_fingerprint", "task_card_hash", "evidence_hash", "time_mapping_hash", "trace_binding_hash"];
+const fields = {};
 const manifest = () => state.provider?.manifest;
 const cases = () => manifest()?.cases ?? [];
-const current = () => cases()[state.index];
-const reviewChoices = (row = current()) => row?.review_dimensions
-  ? choices.filter(([key]) => row.review_dimensions.includes(key))
-  : choices;
-const profile = () => nodes.reviewer.value.trim();
-const draftKey = () => `ego-wm-review/v1/${manifest().batch_id}/${profile() || "__draft__"}`;
-const text = (item, contents) => { item.textContent = typeof contents === "string" ? contents : ""; };
-const displayTime = (sec) => Number.isFinite(sec) ? `${Math.max(0, sec).toFixed(2)} s` : "—";
-const asSeconds = (x, fallback = 0) => Number.isFinite(x) ? x : fallback;
-const printableOrdinal = (i) => String(i + 1).padStart(2, "0");
-
+const row = () => cases()[state.index];
+const reviewer = () => ui.reviewer.value;
+const scoreWindow = () => row().timeline.score_window_s;
+const text = (node, value) => { node.textContent = value ?? ""; };
+const create = (tag, content, className) => {
+  const element = document.createElement(tag);
+  if (content != null) element.textContent = content;
+  if (className) element.className = className;
+  return element;
+};
+const makeButton = (content, className, action) => {
+  const button = create("button", content, className);
+  button.type = "button";
+  button.addEventListener("click", action);
+  return button;
+};
+const storageKey = () => "ego-wm-review/v2/" + manifest().batch_id + "/" + manifest().assignment_id +
+  "/" + (reviewer() || "preview");
+const initialDraft = () => ({ decisions: {}, issues: [], record: null });
+const experiments = () => manifest()?.usability_trial === true;
+const read = (key, fallback) => {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+  catch { return fallback; }
+};
+function write(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch { return false; }
+}
 function notice(message, type = "info") {
-  text(nodes.notice, message);
-  nodes.notice.dataset.type = type;
-  nodes.notice.hidden = !message;
+  text(ui.notice, message);
+  ui.notice.dataset.type = type;
+  ui.notice.hidden = !message;
+}
+function putDraft() {
+  if (!row() || !reviewer()) return;
+  const history = state.bucket[row().blind_id] ??= {};
+  history[row().case_fingerprint] = state.draft;
+  const saved = write(storageKey(), state.bucket);
+  text(ui["save-status"], saved ? (state.draft.record ? "已保存" : "草稿已保存") : "草稿仅留在本页面");
+}
+const metrics = new ReviewMetrics("v2", (snapshot) => {
+  if (!state.draft || !reviewer()) return;
+  state.draft.metrics = snapshot;
+  putDraft();
+});
+const player = new ReviewPlayer(ui, () => {
+  refreshIdentity();
+  if (!ui["review-form"].contains(document.activeElement)) updateFormStates();
+});
+
+function effectiveAvailability() {
+  const result = { ...player.availability };
+  for (const issue of state.draft.issues) {
+    for (const key of issue.affected_channels) result[key] = "unavailable";
+  }
+  return result;
+}
+const coveredByReference = (requirement) =>
+  !(row().task_card.reference_unresolved_requirement_ids ?? []).includes(requirement.id);
+
+function attainedAlternative(req, kind, point, physical) {
+  const availability = effectiveAvailability();
+  return req.evidence_options.find((option) => option.every((channel) => availability[channel] === "valid") &&
+    (!option.includes("physics") || (kind === "event_anchor" ? physical?.contacts_available :
+      player.physicalReady(requirementWindow(row(), req)))) &&
+    (kind !== "event_anchor" || !option.includes("timing") || point));
 }
 
-function field(label, item, className) {
-  const outer = document.createElement("label");
-  outer.className = className ?? "";
-  outer.append(label, item);
-  return outer;
-}
-function makeInput(attributes) {
-  const node = document.createElement("input");
-  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
-  return node;
+function gatherEvidence(req, kind) {
+  if (!coveredByReference(req)) return null;
+  const window = requirementWindow(row(), req);
+  const wholeScope = window.every((value, index) => Math.abs(value - scoreWindow()[index]) < .000002);
+  const frame = player.frame();
+  const physical = player.selectedPhysical();
+  const alternative = attainedAlternative(req, kind, frame, physical);
+  if (!alternative) return null;
+  const base = { mapping_hash: row().time_mapping_hash, requirement_ids: [req.id], channels: alternative };
+  if (kind !== "event_anchor") {
+    const provenance = "reviewer_claim_over_frozen_scope";
+    if (player.frames && !state.draft.issues.some((issue) => issue.affected_channels.includes("timing")) ||
+      alternative.includes("physics"))
+      return { ...base, kind, time_basis: "trace", interval_s: window, provenance };
+    if (wholeScope && alternative.includes("execution")) {
+      const timeline = row().timeline;
+      return { ...base, kind, time_basis: "execution_media",
+        interval_s: [timeline.execution_video_offset_s, timeline.execution_video_offset_s + timeline.execution_duration_s],
+        provenance };
+    }
+    return null;
+  }
+  const within = (t) => t >= window[0] - .000002 && t <= window[1] + .000002;
+  if (frame && within(frame.trace_time_s)) {
+    return { ...base, kind, time_basis: "trace", trace_time_s: frame.trace_time_s,
+      state_index: frame.state_index, transition_index: frame.transition_index,
+      execution_video_pts_s: frame.execution_video_pts_s, execution_frame_id: frame.execution_frame_id,
+      source_frame_id: frame.source_frame_id, provenance: "reviewer_selected" };
+  }
+  if (!alternative.includes("timing") && alternative.includes("physics") && physical && within(physical.state_time_s)) {
+    return { ...base, kind: "physical_transition", time_basis: "trace", trace_time_s: physical.state_time_s,
+      state_index: physical.transition_index + 1, transition_index: physical.transition_index, provenance: "reviewer_selected" };
+  }
+  if (wholeScope && !alternative.includes("timing") && alternative.includes("physics") === false &&
+      alternative.includes("execution") &&
+      Number.isFinite(player.decoded.execution) && !player.videos.execution.seeking) {
+    return { ...base, kind, time_basis: "execution_media", execution_video_pts_s: player.decoded.execution,
+      provenance: "reviewer_selected" };
+  }
+  return null;
 }
 
-for (const [key, code, label, description] of choices) {
-  const fieldset = document.createElement("fieldset");
-  fieldset.className = "dimension";
-  const row = document.createElement("div");
-  row.className = "dim-row";
-  const heading = document.createElement("div");
-  const title = document.createElement("p");
-  title.className = "dim-title";
-  title.id = `${key}-heading`;
-  const letter = document.createElement("span");
-  letter.textContent = code;
-  title.append(letter, label);
-  const explain = document.createElement("p");
-  explain.className = "dim-description";
-  explain.id = `${key}-rubric`;
-  explain.textContent = description;
-  heading.append(title, explain);
-  const options = document.createElement("div");
-  options.className = "options";
-  options.setAttribute("role", "radiogroup");
-  options.setAttribute("aria-labelledby", title.id);
-  options.setAttribute("aria-describedby", explain.id);
-  const radios = answers.map(([value, short]) => {
-    const radio = makeInput({ type: "radio", name: key, value });
-    const span = document.createElement("span");
-    span.textContent = key === "functional" ? ({ pass: "完成", fail: "未完成" }[value] ?? short) : short;
-    const option = document.createElement("label");
-    option.className = "option";
-    option.append(radio, span);
-    options.append(option);
-    return radio;
+function untouchedState(key, skips) {
+  const card = row().task_card;
+  const requirements = card.requirements[key];
+  if (card.setup_issue?.affected_dimensions.includes(key)) return "blocked";
+  if (state.draft.issues.some((issue) => identityIssues.has(issue.code))) return "blocked";
+  if (skips[key]) return "skipped";
+  const availability = effectiveAvailability();
+  const knownGap = requirements.some((req) =>
+    req.evidence_options.every((option) => option.some((channel) => availability[channel] === "unavailable")));
+  const unresolvedIssue = state.draft.issues.some((issue) => issue.code === "other_material_issue" ||
+    issue.code === "media_unavailable" && !issue.affected_channels.length);
+  if (knownGap || unresolvedIssue && !state.draft.decisions[key]?.verdict) return "blocked";
+  return "pending";
+}
+
+function alternateStillValid(evidence) {
+  const availability = effectiveAvailability();
+  return evidence?.channels.every((channel) => availability[channel] === "valid") &&
+    (evidence.time_basis !== "trace" ||
+      evidence.kind === "physical_transition" || player.frames &&
+      !state.draft.issues.some((issue) => issue.affected_channels.includes("timing")) ||
+      evidence.channels.includes("physics"));
+}
+
+function evaluate(key, skips) {
+  const draft = state.draft.decisions[key] ?? {};
+  const { task_card: card } = row();
+  const contract = card.requirements[key];
+  const base = { applicability: "required", scope_id: card.dimension_scopes?.[key] ?? card.scope_id,
+    assessment_state: untouchedState(key, skips), verdict: null, evidence: [] };
+  const invalidIdentity = state.draft.issues.some((issue) => identityIssues.has(issue.code)) ||
+    card.setup_issue?.affected_dimensions.includes(key);
+  if (invalidIdentity) return base;
+  const unresolved = new Set(draft.unresolved ?? []);
+  for (const req of contract) {
+    if (!coveredByReference(req) || !evidenceAlternative(req, effectiveAvailability())) unresolved.add(req.id);
+  }
+  const makeEvaluated = (verdict, codes, covered, decisive, unresolvedIds, evidence) => ({
+    ...base, assessment_state: "evaluated", verdict, reason_codes: codes,
+    covered_requirement_ids: covered, decisive_requirement_ids: decisive,
+    unresolved_requirement_ids: unresolvedIds, evidence, note: draft.note ?? "",
   });
-  row.append(heading, options);
-  const support = document.createElement("div");
-  support.className = "row-support";
-  support.hidden = true;
-  const reason = makeInput({ type: "text", maxlength: "1000", placeholder: "描述可见证据或缺少的信息", "aria-label": `${label}依据` });
-  const start = makeInput({ type: "number", min: "0", step: "0.01", placeholder: "0.00", "aria-label": `${label}证据起点` });
-  const end = makeInput({ type: "number", min: "0", step: "0.01", placeholder: "0.00", "aria-label": `${label}证据终点` });
-  const stamp = document.createElement("button");
-  stamp.type = "button";
-  stamp.className = "secondary";
-  stamp.textContent = "记时间";
-  stamp.addEventListener("click", () => {
-    const value = getEvidenceTime().toFixed(3);
-    if (start.value === "" || Number(value) < Number(start.value)) start.value = value;
-    if (end.value === "" || Number(value) > Number(end.value)) end.value = value;
-    saveCurrent();
-  });
-  const evidence = document.createElement("div");
-  evidence.className = "evidence-controls";
-  const range = document.createElement("span");
-  range.className = "evidence-range";
-  range.setAttribute("aria-live", "polite");
-  evidence.append(stamp, range);
-  const manual = document.createElement("details");
-  manual.className = "manual-evidence";
-  const summary = document.createElement("summary");
-  summary.textContent = "手填依据或时间";
-  const fields = document.createElement("div");
-  fields.className = "manual-fields";
-  fields.append(field("依据", reason, "reason"), field("起点 s", start, "time-input"),
-    field("终点 s", end, "time-input"));
-  manual.append(summary, fields);
-  support.append(evidence, manual);
-  const quick = document.createElement("div");
-  quick.className = "quick-reasons";
-  quick.setAttribute("aria-label", `${label}快捷依据`);
-  quick.hidden = true;
-  fieldset.append(row, quick, support);
-  nodes.dimensions.append(fieldset);
-  inputs[key] = { radios, explain, quick, support, reason, start, end, range, stamp, manual, fieldset };
+  if (draft.verdict === "pass") {
+    const evidence = contract.map((req) => gatherEvidence(req, "reviewed_scope"));
+    if (!unresolved.size && evidence.every(Boolean))
+      return makeEvaluated("pass", [], contract.map((req) => req.id), [], [], evidence);
+  }
+  if (draft.verdict === "fail") {
+    const reasons = draft.reasons.filter((reason) => {
+      const req = contract.find((item) => item.id === reason.requirement_id);
+      return req && coveredByReference(req) && (reason.evidence ?? []).some(alternateStillValid);
+    });
+    if (reasons.length) {
+      const decisive = reasons.map((reason) => reason.requirement_id);
+      return makeEvaluated("fail", reasons.map((reason) => reason.code), decisive, decisive,
+        [...unresolved].filter((id) => !decisive.includes(id)),
+        reasons.flatMap((reason) => reason.evidence.filter(alternateStillValid)));
+    }
+  }
+  if (draft.verdict === "unknown" && draft.reasons.length && base.assessment_state !== "blocked") {
+    const codes = [...new Set(draft.reasons.map((reason) => reason.code))];
+    for (const reason of draft.reasons) unresolved.add(reason.requirement_id);
+    return makeEvaluated("unknown", codes, [], [], [...unresolved], []);
+  }
+  if (base.assessment_state === "skipped") {
+    base.skip_reason = "short_circuit_fail";
+    base.skip_dependency = { dimension: skips[key], verdict: "fail", case_fingerprint: row().case_fingerprint };
+  }
+  return base;
 }
 
-function updateReasons(key, value) {
-  const input = inputs[key];
-  input.quick.hidden = !value;
-  if (input.quick.dataset.value !== value) {
-    input.quick.dataset.value = value;
-    input.quick.replaceChildren(...(quickReasons[key][value] ?? []).map((option) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "secondary";
-      button.textContent = option;
-      button.addEventListener("click", () => {
-        input.reason.value = option;
-        input.manual.open = false;
-        input.fieldset.classList.remove("invalid");
-        text(nodes["completion-error"], "");
-        saveCurrent();
-      });
-      return button;
-    }));
-  }
-  for (const button of input.quick.children) {
-    button.setAttribute("aria-pressed", String(button.textContent === input.reason.value.trim()));
-  }
-  const startTime = input.start.value;
-  const endTime = input.end.value;
-  text(input.range, startTime === "" || endTime === ""
-    ? (value === "unknown" ? "时间可选" : "请记下证据时间")
-    : startTime === endTime ? displayTime(Number(startTime)) : `${displayTime(Number(startTime))} – ${displayTime(Number(endTime))}`);
+function decisionStates() {
+  const assigned = assignedDimensions(row());
+  const beforeGates = Object.fromEntries(assigned.map((key) => [key, evaluate(key, {})]));
+  const skips = skippedBy(row(), beforeGates);
+  return Object.fromEntries(assigned.map((key) => [key, evaluate(key, skips)]));
 }
 
-function getDraft() {
-  return state.drafts[current()?.blind_id] ?? { completed: false, details: {} };
-}
-function fieldValues() {
-  const values = {};
-  for (const [key] of reviewChoices()) {
-    const input = inputs[key];
-    const value = input.radios.find((item) => item.checked)?.value ?? "";
-    input.support.hidden = !value;
-    updateReasons(key, value);
-    values[key] = { value, reason: input.reason.value.trim(), start: input.start.value, end: input.end.value };
-  }
-  return values;
-}
-function saveCurrent(completed = false) {
-  if (!current()) return;
-  const details = fieldValues();
-  state.drafts[current().blind_id] = { completed, details };
-  const saved = writeStorage(draftKey(), state.drafts);
-  text(nodes["save-status"], saved ? (completed ? "已完成" : "草稿已保存") : "仅当前页面保存");
+function changeDraft(key, draft) {
+  state.draft.decisions[key] = draft;
+  state.draft.record = null;
+  text(ui["completion-error"], "");
+  putDraft();
   refreshQueue();
+  updateFormStates();
 }
-function updateForm() {
-  const row = current();
-  const draft = getDraft();
-  const assigned = reviewChoices(row).map(([key]) => key);
-  for (const [key, , , fallback] of choices) {
-    const input = inputs[key];
-    const value = draft.details[key] ?? {};
-    text(input.explain, row?.task?.rubric?.[key] || fallback);
-    for (const option of input.radios) option.checked = option.value === value.value;
-    input.reason.value = value.reason ?? "";
-    input.start.value = value.start ?? "";
-    input.end.value = value.end ?? "";
-    input.support.hidden = !value.value;
-    input.manual.open = Boolean(value.reason && !(quickReasons[key][value.value] ?? []).includes(value.reason));
-    updateReasons(key, value.value ?? "");
-    input.fieldset.classList.remove("invalid");
-    input.fieldset.disabled = !row || !assigned.includes(key);
-    input.fieldset.hidden = !assigned.includes(key);
+
+function chooseVerdict(key, verdict) {
+  if (!reviewer()) return;
+  const prior = state.draft.decisions[key];
+  if (prior?.verdict === verdict) return;
+  if (prior?.verdict) metrics.add("verdict_revisions");
+  changeDraft(key, { verdict, reasons: [], unresolved: [], note: "" });
+  renderForm();
+}
+
+function formatAnchor(evidence) {
+  if (evidence.interval_s) return evidence.interval_s.map((value) => value.toFixed(3) + " s").join(" 至 ");
+  const point = evidence.trace_time_s ?? evidence.execution_video_pts_s;
+  return point.toFixed(3) + " s" + (evidence.time_basis === "execution_media" ? " 视频" : " 物理");
+}
+
+function selectReason(key, req, code) {
+  const decision = state.draft.decisions[key];
+  const already = decision.reasons.findIndex((reason) => reason.requirement_id === req.id && reason.code === code);
+  if (already >= 0 && decision.reasons.length > 1) {
+    decision.reasons.splice(already, 1);
+  } else if (already < 0) {
+    const existing = decision.reasons.filter((reason) => reason.requirement_id !== req.id);
+    const evidence = decision.verdict === "fail" ?
+      gatherEvidence(req, req.failure_evidence === "window" ? "observation_window" : "event_anchor") : null;
+    decision.reasons = [...existing, { requirement_id: req.id, code, evidence: evidence ? [evidence] : [] }];
+    if (evidence?.kind === "event_anchor") player.pause();
   }
-  text(nodes["completion-error"], "");
-  text(nodes["save-status"], draft.completed ? "已完成" :
-    Object.values(draft.details).some((detail) => detail.value) ? "草稿已保存" : "");
-  nodes.complete.disabled = !row;
-  text(nodes.complete, draft.completed ? "保存修改并下一条 →" : "完成并下一条 →");
+  changeDraft(key, decision);
+  renderSupport(key);
+  fields[key]?.support.querySelector("[aria-pressed=true]")?.focus({ preventScroll: true });
+}
+
+function evidencePicker(key, req, reason, target) {
+  if (req.failure_evidence !== "event_anchor") return;
+  const add = () => {
+    const evidence = gatherEvidence(req, "event_anchor");
+    if (!evidence) {
+      text(ui["completion-error"], "请暂停在该反例对应的已解码画面，或查看可用的求解器记录。");
+      return;
+    }
+    player.pause();
+    const matched = reason.evidence.some((previous) => formatAnchor(previous) === formatAnchor(evidence));
+    if (!matched) reason.evidence.push(evidence);
+    changeDraft(key, state.draft.decisions[key]);
+    renderSupport(key);
+    fields[key].support.querySelector(".capture-anchor")?.focus({ preventScroll: true });
+  };
+  target.append(makeButton(reason.evidence.length ? "再记一帧" : "记当前反例帧", "link-button capture-anchor", add));
+}
+
+function renderSupport(key) {
+  const { support } = fields[key];
+  const decision = state.draft.decisions[key];
+  support.replaceChildren();
+  support.hidden = !decision?.verdict || decision.verdict === "pass";
+  if (support.hidden) return;
+  const required = row().task_card.requirements[key];
+  const fail = decision.verdict === "fail";
+  if (fail) {
+    const buttons = create("div", null, "quick-reasons");
+    for (const req of required) {
+      const button = makeButton(req.failure_label_zh ?? req.label_zh, "secondary", () => selectReason(key, req, req.failure_code));
+      button.setAttribute("aria-pressed", String(decision.reasons.some((reason) => reason.code === req.failure_code)));
+      buttons.append(button);
+    }
+    support.append(buttons);
+    for (const reason of decision.reasons) {
+      const req = required.find((item) => item.id === reason.requirement_id);
+      const line = create("div", null, "recorded-evidence");
+      text(line, reason.evidence.length ? reason.evidence.map(formatAnchor).join(" · ") :
+        req.failure_evidence === "window" ? "该观察区间证据不可用。" : "请定位到反例画面。");
+      evidencePicker(key, req, reason, line);
+      support.append(line);
+    }
+  } else {
+    const knownUnavailable = required.filter((req) => !coveredByReference(req) ||
+      !evidenceAlternative(req, effectiveAvailability()));
+    const preferred = knownUnavailable.length ? knownUnavailable : required;
+    const options = [];
+    for (const req of preferred) {
+      const configured = req.unknown_reasons?.length ? req.unknown_reasons : [{
+        code: coveredByReference(req) ? "evidence_gap" : "reference_missing",
+        label_zh: "无法核对：" + req.label_zh,
+      }];
+      for (const reason of configured) {
+        options.push({ code: reason.code, label: reason.label_zh, req });
+      }
+    }
+    if (preferred.length === 1 && !preferred[0].unknown_reasons?.length)
+      options.splice(0, options.length, ...unknownReasons.map((reason) => ({
+        code: reason.code, label: reason.label_zh, req: preferred[0],
+      })));
+    const buttons = create("div", null, "quick-reasons");
+    for (const { code, label, req } of options) {
+      const button = makeButton(label, "secondary", () => selectReason(key, req, code));
+      button.setAttribute("aria-pressed", String(decision.reasons.some((reason) =>
+        reason.requirement_id === req.id && reason.code === code)));
+      buttons.append(button);
+    }
+    support.append(buttons);
+  }
+  const details = create("details", null, "optional-note");
+  details.append(create("summary", fail ? "补充信息或备注（可选）" : "备注（可选）"));
+  if (fail && required.length > 1) {
+    const knownCount = create("p", "其他必要要求看不清时，可以一并标明。");
+    details.append(knownCount);
+    for (const req of required) {
+      if (decision.reasons.some((reason) => reason.requirement_id === req.id)) continue;
+      const label = create("label", null, "optional-requirement");
+      const input = create("input");
+      input.type = "checkbox";
+      input.checked = decision.unresolved.includes(req.id);
+      input.addEventListener("change", () => {
+        decision.unresolved = required.filter(({ id }) =>
+          id === req.id ? input.checked : decision.unresolved.includes(id)).map(({ id }) => id);
+        changeDraft(key, decision);
+      });
+      label.append(input, document.createTextNode(req.label_zh));
+      details.append(label);
+    }
+  }
+  const note = create("textarea");
+  note.rows = 2;
+  note.maxLength = 500;
+  note.value = decision.note;
+  note.setAttribute("aria-label", labels[key] + "备注");
+  note.addEventListener("input", () => {
+    decision.note = note.value;
+    state.draft.record = null;
+    putDraft();
+    refreshQueue();
+  });
+  details.append(note);
+  support.append(details);
+}
+
+function renderForm() {
+  ui.dimensions.replaceChildren();
+  for (const key of Object.keys(fields)) delete fields[key];
+  if (!row()) return;
+  for (const key of assignedDimensions(row())) {
+    const choice = state.draft.decisions[key];
+    const fieldset = create("fieldset", null, "dimension");
+    fieldset.dataset.dimension = key;
+    const rowDisplay = create("div", null, "dim-row");
+    const heading = create("div");
+    const title = create("p", null, "dim-title");
+    title.id = key + "-review-dimension";
+    title.append(create("span", key), document.createTextNode(labels[key]));
+    const requirements = create("ul", null, "task-requirements");
+    for (const req of row().task_card.requirements[key]) {
+      const item = create("li", req.label_zh);
+      if (!coveredByReference(req)) item.append(create("span", "参考不足", "scope-badge"));
+      requirements.append(item);
+    }
+    heading.append(title, requirements);
+    const controls = create("div", null, "options");
+    controls.role = "radiogroup";
+    controls.setAttribute("aria-labelledby", title.id);
+    for (const [value, label] of Object.entries(verdictLabels[key])) {
+      const option = create("label", null, "option");
+      const radio = create("input");
+      radio.type = "radio";
+      radio.name = key;
+      radio.value = value;
+      radio.checked = choice?.verdict === value;
+      radio.addEventListener("change", () => {
+        chooseVerdict(key, value);
+        fields[key].fieldset.querySelector("input[type=radio]:checked")?.focus({ preventScroll: true });
+      });
+      option.append(radio, create("span", label));
+      controls.append(option);
+    }
+    rowDisplay.append(heading, controls);
+    const flow = create("p", null, "dimension-flow");
+    flow.hidden = true;
+    const support = create("div", null, "review-support");
+    fieldset.append(rowDisplay, flow, support);
+    ui.dimensions.append(fieldset);
+    fields[key] = { fieldset, controls, flow, support };
+    renderSupport(key);
+  }
+  updateFormStates();
+}
+
+function updateFormStates() {
+  if (!row() || !state.draft) return;
+  const decisions = decisionStates();
+  for (const [key, parts] of Object.entries(fields)) {
+    const decision = decisions[key];
+    parts.fieldset.disabled = !reviewer();
+    parts.fieldset.dataset.state = decision.assessment_state;
+    parts.controls.hidden = decision.assessment_state === "skipped" ||
+      Boolean(row().task_card.setup_issue?.affected_dimensions.includes(key)) ||
+      state.draft.issues.some((issue) => identityIssues.has(issue.code));
+    const transientChoice = state.draft.decisions[key]?.verdict;
+    parts.support.hidden = parts.controls.hidden || !transientChoice || transientChoice === "pass";
+    const tags = { skipped: "本项已跳过 · 已有前置明确失败", blocked: "所需材料或判据待修复" };
+    parts.flow.hidden = !tags[decision.assessment_state];
+    text(parts.flow, tags[decision.assessment_state]);
+  }
+  const stale = Object.keys(state.bucket[row().blind_id] ?? {}).some((id) => id !== row().case_fingerprint);
+  if (!state.draft.record && stale && !Object.keys(state.draft.decisions).length) text(ui["save-status"], "素材已更新，需重审");
+  else if (state.draft.record) text(ui["save-status"], "已保存");
+  else if (Object.keys(state.draft.decisions).length) text(ui["save-status"], "草稿已保存");
+  else text(ui["save-status"], "");
+  const setup = row().task_card.setup_issue?.label_zh;
+  const recorded = state.draft.issues.length ? "已记录 " + state.draft.issues.length + " 项材料问题。" : "";
+  const issue = [setup, recorded].filter(Boolean).join(" ");
+  text(ui["issue-status"], issue);
+  ui["issue-status"].hidden = !issue;
+  ui.complete.disabled = !reviewer() || ui.workspace.getAttribute("aria-busy") === "true";
+  text(ui.complete, state.draft.record ? "保存修改并下一条 →" : "保存并下一条 →");
+}
+
+function statusForCase(entry) {
+  const history = state.bucket[entry.blind_id] ?? {};
+  const draft = history[entry.case_fingerprint];
+  if (draft?.record) {
+    const states = new Set(Object.values(draft.record.dimensions).map((record) => record.assessment_state));
+    if (states.has("blocked")) return "blocked";
+    if (states.has("skipped")) return "skipped";
+    return "evaluated";
+  }
+  if (Object.keys(history).some((id) => id !== entry.case_fingerprint) && !Object.keys(draft?.decisions ?? {}).length)
+    return "stale";
+  return "pending";
 }
 
 function refreshQueue() {
-  const total = cases().length;
-  const completed = cases().filter((row) => state.drafts[row.blind_id]?.completed).length;
-  nodes.progress.value = completed;
-  nodes.progress.max = total || 1;
-  text(nodes["progress-text"], `${completed} / ${total} 已完成`);
-  text(nodes["progress-percent"], total ? `${Math.round(100 * completed / total)}%` : "");
-  nodes["case-list"].replaceChildren();
-  cases().forEach((row, index) => {
-    const draft = state.drafts[row.blind_id];
-    const status = draft?.completed ? "complete" :
-      Object.values(draft?.details ?? {}).some((detail) => detail.value) ? "draft" : "new";
-    if (nodes.filter.checked && status === "complete" && index !== state.index) return;
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "case-button";
-    button.setAttribute("aria-current", String(state.index === index));
-    const name = document.createElement("span");
-    name.className = "name";
-    name.textContent = `${printableOrdinal(index)}  ${row.task.title || "审阅片段"}`;
-    name.title = name.textContent;
-    const badge = document.createElement("span");
-    badge.className = "state";
-    badge.dataset.status = status;
-    badge.textContent = { complete: "完成", draft: "草稿", new: "待审" }[status];
-    button.append(name, badge);
-    button.addEventListener("click", () => {
-      renderCase(index);
-      nodes.workspace.focus({ preventScroll: true });
+  if (!manifest()) return;
+  const totals = Object.fromEntries(Object.keys(statuses).map((key) => [key, 0]));
+  ui["case-list"].replaceChildren();
+  for (const [index, entry] of cases().entries()) {
+    const status = statusForCase(entry);
+    totals[status] += 1;
+    if (ui.filter.checked && ["evaluated", "skipped"].includes(status) && index !== state.index) continue;
+    const item = create("li");
+    const button = makeButton(null, "case-button", () => {
+      openCase(index);
+      ui.workspace.focus({ preventScroll: true });
     });
+    button.setAttribute("aria-current", String(index === state.index));
+    const title = String(index + 1).padStart(2, "0") + "  " + titleFor(entry);
+    const name = create("span", title, "name");
+    name.title = title;
+    const badge = create("span", statuses[status], "state");
+    badge.dataset.status = status;
+    button.append(name, badge);
     item.append(button);
-    nodes["case-list"].append(item);
-  });
-  if (!nodes["case-list"].childElementCount) {
-    const p = document.createElement("li");
-    p.className = "queue-empty";
-    p.textContent = total ? "已全部完成。" : "导入审阅包以开始。";
-    nodes["case-list"].append(p);
+    ui["case-list"].append(item);
   }
-  nodes.export.disabled = !completed || !profile();
-  text(nodes["export-count"], String(completed));
+  const processed = totals.evaluated + totals.skipped + totals.blocked;
+  ui.progress.value = processed;
+  ui.progress.max = cases().length;
+  text(ui["progress-text"], "已处理 " + processed + " / " + cases().length);
+  text(ui["progress-states"], Object.entries(totals).filter(([, count]) => count)
+    .map(([key, count]) => statuses[key] + " " + count).join(" · "));
+  ui.export.disabled = !processed || !reviewer();
+  text(ui["export-count"], String(processed));
 }
 
-async function getAsset(key, generation) {
-  const blob = await state.provider.fetchBlob(key);
-  if (generation !== state.generation) return null;
-  const url = URL.createObjectURL(blob);
-  state.urls.push(url);
-  return url;
+const titleFor = (entry) => entry.title ?? entry.task_card.title_zh ?? entry.task?.title ?? entry.task_card.source_scope ?? "审阅片段";
+function refreshIdentity() {
+  const entry = row();
+  if (!entry) return;
+  const availability = player.row === entry ? player.availability : {};
+  const evidenceStates = { valid: "已核验", unavailable: "不可用", unverified: "核验中" };
+  const output = [
+    ["源示范", evidenceStates[availability.source] ?? "核验中"],
+    ["机器人回放", evidenceStates[availability.execution] ?? "核验中"],
+    ["逐帧映射", evidenceStates[availability.timing] ?? "核验中"],
+    ["物理记录", evidenceStates[availability.physics] ?? "核验中"],
+    ["案例版本", entry.case_fingerprint],
+    ["任务卡版本", entry.task_card_hash],
+    ["素材版本", entry.evidence_hash],
+    ["映射版本", entry.time_mapping_hash],
+  ];
+  ui["case-identity"].replaceChildren(...output.map(([key, value]) => {
+    const element = create("div");
+    element.append(create("dt", key), create("dd", value));
+    return element;
+  }));
 }
 
-function clearMedia() {
-  for (const side of Object.keys(vids)) {
-    const video = vids[side];
-    video.pause();
-    video.removeAttribute("src");
-    delete video.dataset.programmedSeek;
-    video.querySelectorAll("track").forEach((track) => track.remove());
-    video.load();
-  }
-  for (const url of state.urls) URL.revokeObjectURL(url);
-  state.urls = [];
-  linked = false;
-  text(nodes.play, "同时播放");
-}
-async function installVideo(side, row, generation) {
-  nodes[`${side}-empty`].hidden = true;
-  const video = vids[side];
-  const filename = row?.media?.[side];
-  if (!filename) {
-    nodes[`${side}-empty`].hidden = false;
-    return;
-  }
-  try {
-    const url = await getAsset(filename, generation);
-    if (generation !== state.generation) return;
-    video.src = url;
-    const captions = row.media[`${side}_captions`];
-    if (captions) {
-      const sub = await getAsset(captions, generation);
-      if (sub && generation === state.generation) {
-        const track = document.createElement("track");
-        track.kind = "subtitles";
-        track.label = "说明";
-        track.srclang = "en";
-        track.src = sub;
-        video.append(track);
-      }
-    }
-  } catch (error) {
-    if (generation !== state.generation) return;
-    notice(error.message, "error");
-    nodes[`${side}-empty`].hidden = false;
-  }
-}
-
-async function renderCase(idx) {
-  if (idx < 0 || idx >= cases().length) return;
-  state.index = idx;
-  const generation = ++state.generation;
-  clearMedia();
-  const row = current();
-  nodes.workspace.setAttribute("aria-busy", "true");
-  text(nodes["case-counter"], `第 ${idx + 1} / ${cases().length} 条 · ${row.blind_id}`);
-  text(nodes["case-title"], row.task.title || "审阅片段");
-  text(nodes["case-description"], row.task.description);
-  nodes.previous.disabled = idx === 0;
-  nodes.next.disabled = idx + 1 >= cases().length;
-  nodes["evidence-panel"].hidden = !row.media.physical_evidence;
-  nodes["evidence-panel"].open = false;
-  state.physical = null;
-  state.frames = null;
-  state.loadingPhysical = false;
-  text(nodes["physical-status"], "展开后载入。");
-  nodes["physical-table"].replaceChildren();
-  nodes.seek.value = "0";
-  updateForm();
+async function openCase(index) {
+  if (!cases()[index]) return;
+  metrics.leave();
+  state.index = index;
+  const entry = row();
+  state.draft = state.bucket[entry.blind_id]?.[entry.case_fingerprint] ?? initialDraft();
+  ui.workspace.setAttribute("aria-busy", "true");
+  text(ui["case-counter"], "第 " + (state.trialSession ? state.trialSession.position + 1 : index + 1) +
+    " / " + (state.trialSession?.total ?? cases().length) + " 条");
+  text(ui["case-title"], titleFor(entry));
+  const card = entry.task_card;
+  text(ui["task-goal"], card.task_goal_zh);
+  text(ui["task-scope"], card.source_scope);
+  text(ui["task-demonstration"], card.demonstration_constraints_zh);
+  text(ui["task-adaptation"], card.adaptation_zh ?? card.allowed_adaptation_zh);
+  ui["adaptation-row"].hidden = !ui["task-adaptation"].textContent;
+  ui["task-brief"].hidden = ui["case-details"].hidden = false;
+  ui["case-details"].open = false;
+  ui.previous.disabled = index === 0;
+  ui.next.disabled = index === cases().length - 1;
+  ui["load-problem"].disabled = ui.later.disabled = !reviewer();
+  text(ui["judgment-hint"], manifest().assignment_role === "arbiter" ? "按相同题目独立判断所列项目。"
+    : card.review_mode === "acceptance" ? "先看任务目标，其他项目会按当前结论安排。"
+    : "逐项独立判断任务目标、接触策略和运动过程。");
+  text(ui["completion-error"], "");
+  const loaded = player.load(state.provider, entry);
+  renderForm();
+  refreshIdentity();
   refreshQueue();
-  writeStorage(`${draftKey()}/index`, idx);
-  await Promise.all([...Object.keys(vids).map((side) => installVideo(side, row, generation)),
-    loadFrameMap(row, generation)]);
-  if (generation === state.generation) {
-    nodes.workspace.setAttribute("aria-busy", "false");
-    updateTransport();
+  addTrialMarker(metrics, experiments());
+  if (reviewer()) {
+    write(storageKey() + "/index", index);
+    if (!state.draft.record) metrics.start(state.draft.metrics, entry.trial_position ?? index, experiments());
+  }
+  const generation = player.generation;
+  await loaded;
+  if (generation === player.generation) {
+    ui.workspace.setAttribute("aria-busy", "false");
+    updateFormStates();
   }
 }
 
-function loadDrafts() {
-  state.drafts = readStorage(draftKey(), {});
-  if (!state.drafts || typeof state.drafts !== "object") state.drafts = {};
+function setReviewer(id) {
+  metrics.leave();
+  state.reviewer = id;
+  state.bucket = id ? read(storageKey(), {}) : {};
+  if (!state.bucket || Array.isArray(state.bucket) || typeof state.bucket !== "object") state.bucket = {};
+  if (id) write("ego-wm-review/v2/assignment/" + manifest().assignment_id, id);
+  const index = read(storageKey() + "/index", state.index);
+  openCase(Number.isInteger(index) && cases()[index] ? index : 0);
 }
-async function setProvider(provider) {
-  state.provider = provider;
-  loadDrafts();
-  const kinds = { review: "开发盲审批次", demo: "练习批次", local: "导入的审阅批次" };
-  text(nodes["batch-kind"], manifest().assignment_role === "arbiter" ? "分歧复核" : kinds[provider.kind]);
-  nodes["open-default"].hidden = provider.kind === "review";
-  nodes["open-demo"].hidden = provider.kind === "demo";
-  text(nodes["batch-title"], manifest().title || manifest().batch_id);
-  let index = Number(readStorage(`${draftKey()}/index`, 0));
-  if (!Number.isInteger(index) || index < 0 || index >= cases().length) index = 0;
-  await renderCase(index);
-}
-async function importFile(read, file) {
-  if (!file) return;
-  nodes.help.close();
+
+async function openBatch(load) {
   const request = ++state.request;
+  notice("正在核对审阅批次。");
   try {
-    notice("正在读取本地审阅包。");
-    const provider = await read(file);
+    const provider = await load();
     if (request !== state.request) return;
+    if (provider.manifest.schema_version !== 2) throw new Error("这份是旧版审阅包，请在旧版对照页面打开。");
+    metrics.leave();
+    state.provider = provider;
+    state.index = 0;
+    text(ui["batch-kind"], manifest().assignment_role === "arbiter" ? "分歧复核" :
+      provider.kind === "review" ? "开发盲审" : "审阅批次");
+    text(ui["batch-title"], manifest().title ?? manifest().batch_id);
+    const trialId = experiments() && manifest().trial_reviewer_id;
+    const roster = manifest().reviewer_ids.filter((id) => !trialId || trialId === id);
+    const prompt = create("option", "选择分配给你的编号");
+    prompt.value = "";
+    ui.reviewer.replaceChildren(prompt, ...roster.map((id) => {
+      const option = create("option", id);
+      option.value = id;
+      return option;
+    }));
+    const pinned = new URLSearchParams(location.search).get("reviewer");
+    const previous = read("ego-wm-review/v2/assignment/" + manifest().assignment_id, "");
+    const selected = [trialId, pinned, previous].find((id) => roster.includes(id)) ?? "";
+    ui.reviewer.disabled = Boolean(trialId);
+    ui.reviewer.value = selected;
+    ui["open-default"].hidden = provider.kind === "review";
     notice("");
-    await setProvider(provider);
+    setReviewer(selected);
   } catch (error) {
-    if (request === state.request) notice(error.message || "审阅包载入失败。", "error");
-  }
-}
-async function loadBuiltIn(kind) {
-  const request = ++state.request;
-  notice("正在载入审阅批次。");
-  nodes.workspace.setAttribute("aria-busy", "true");
-  try {
-    const provider = await builtIn(kind);
     if (request !== state.request) return;
-    notice("");
-    await setProvider(provider);
-  } catch (error) {
-    if (request !== state.request) return;
-    notice(error.message || "批次暂时无法载入。请刷新页面重试。", "error");
-    refreshQueue();
-    nodes.workspace.setAttribute("aria-busy", "false");
+    notice(error.message || "暂时无法打开审阅批次。", "error");
+    if (!manifest()) ui.workspace.setAttribute("aria-busy", "false");
   }
 }
 
-function startOffset(side) { return asSeconds(current()?.timeline?.[`${side}_video_offset_s`]); }
-function duration(side) {
-  const bound = current()?.timeline?.[`${side}_duration_s`];
-  return Math.max(0, asSeconds(bound, asSeconds(vids[side].duration) - startOffset(side)));
-}
-function clamp(value, limit) { return Math.min(Math.max(value, 0), limit); }
-function sourceAt(executionTime) {
-  const spec = current()?.timeline ?? {};
-  return clamp((executionTime - asSeconds(spec.preparation_s)) / asSeconds(spec.uniform_scale, 1), duration("source"));
-}
-function executionAt(sourceTime) {
-  const spec = current()?.timeline ?? {};
-  return clamp(asSeconds(spec.preparation_s) + sourceTime * asSeconds(spec.uniform_scale, 1), duration("execution"));
-}
-function setTime(side, logicalTime) {
-  const video = vids[side];
-  if (video.readyState < 1) return;
-  const target = clamp(startOffset(side) + logicalTime, video.duration);
-  if (Math.abs(video.currentTime - target) > .006) {
-    video.dataset.programmedSeek = String(target);
-    video.currentTime = target;
+function nextPending(index) {
+  for (let delta = 1; delta < cases().length; delta++) {
+    const candidate = (index + delta) % cases().length;
+    const entry = cases()[candidate];
+    if (!state.bucket[entry.blind_id]?.[entry.case_fingerprint]?.record) return candidate;
   }
+  return -1;
 }
-function logicalTime(side) { return clamp(vids[side].currentTime - startOffset(side), duration(side)); }
-function getExecutionTime() {
-  return vids.execution.readyState >= 1 ? logicalTime("execution") : executionAt(logicalTime("source"));
-}
-function getEvidenceTime() {
-  const time = vids.execution.currentTime;
-  if (!state.frames?.length || vids.execution.readyState < 1) return getExecutionTime();
-  let left = 0;
-  let right = state.frames.length;
-  while (left < right) {
-    const mid = (left + right) >>> 1;
-    if (state.frames[mid].video_time_s <= time + .0005) left = mid + 1;
-    else right = mid;
-  }
-  return state.frames[Math.max(0, left - 1)].timestamp_s;
-}
-function seekTo(time) {
-  setTime("execution", time);
-  if (nodes.sync.checked || vids.execution.readyState < 1) setTime("source", sourceAt(time));
-  updateTransport();
-}
-function updateTransport() {
-  const time = getExecutionTime();
-  nodes.seek.max = String(duration("execution") || duration("source") || 1);
-  nodes.seek.value = String(time);
-  text(nodes.position, displayTime(time));
-  text(nodes["source-time"], displayTime(logicalTime("source")));
-  text(nodes["execution-time"], displayTime(logicalTime("execution")));
-  const active = Object.values(vids).some((video) => !video.paused && !video.ended);
-  text(nodes.play, active ? "暂停" : "同时播放");
-  renderPhysical();
-}
-
-async function togglePlayback() {
-  const active = Object.values(vids).some((video) => !video.paused && !video.ended);
-  if (active) {
-    for (const video of Object.values(vids)) video.pause();
-    linked = false;
-    return;
-  }
-  const usable = Object.values(vids).filter((video) => video.src && video.readyState >= 1);
-  if (!usable.length) return;
-  const both = usable.length === 2;
-  if (getExecutionTime() >= duration("execution") - .04) seekTo(0);
-  if (nodes.sync.checked && both) setTime("source", sourceAt(getExecutionTime()));
-  linked = nodes.sync.checked && both;
-  const preparing = linked && getExecutionTime() < asSeconds(current()?.timeline?.preparation_s);
-  const plays = usable.filter((video) => !preparing || video !== vids.source).map((video) => video.play());
-  const outcome = await Promise.allSettled(plays);
-  if (outcome.some((result) => result.status === "rejected")) notice("视频未开始，请使用各自播放器的播放按钮。");
-  updateTransport();
-}
-
-for (const side of Object.keys(vids)) {
-  const video = vids[side];
-  video.addEventListener("loadedmetadata", () => {
-    setTime(side, 0);
-    updateRates();
-    updateTransport();
-  });
-  video.addEventListener("timeupdate", () => {
-    const now = logicalTime(side);
-    const boundary = duration(side);
-    if (boundary && now >= boundary - .01 && video.currentTime >= startOffset(side) + boundary - .01) {
-      // Prevent the private raw source clip from wandering into a different task.
-      if (startOffset(side) + boundary < video.duration - .01) video.pause();
-    }
-    if (side === "execution" && linked && !video.paused) {
-      if (now < asSeconds(current()?.timeline?.preparation_s)) {
-        if (!vids.source.paused) vids.source.pause();
-        setTime("source", 0);
-      } else if (sourceAt(now) < duration("source") - .02 && vids.source.paused && vids.source.readyState >= 1) {
-        setTime("source", sourceAt(now));
-        vids.source.play().catch(() => {});
-      } else if (!vids.source.seeking && Math.abs(sourceAt(now) - logicalTime("source")) > .17) {
-        setTime("source", sourceAt(now));
-      }
-    }
-    updateTransport();
-  });
-  video.addEventListener("seeked", () => {
-    const programmed = video.dataset.programmedSeek;
-    delete video.dataset.programmedSeek;
-    if (nodes.sync.checked && (programmed === undefined || Math.abs(Number(programmed) - video.currentTime) > .07)) {
-      if (side === "execution") setTime("source", sourceAt(logicalTime("execution")));
-      else setTime("execution", executionAt(logicalTime("source")));
-    }
-    updateTransport();
-  });
-  video.addEventListener("pause", updateTransport);
-  video.addEventListener("play", updateTransport);
-  video.addEventListener("ended", () => {
-    if (linked && side === "execution") vids.source.pause();
-    if (side === "execution") linked = false;
-    updateTransport();
-  });
-  video.addEventListener("error", () => {
-    if (!video.getAttribute("src")) return;
-    text(nodes[`${side}-empty`], "视频无法播放，可重新导入审阅包。");
-    nodes[`${side}-empty`].hidden = false;
-  });
-}
-function updateRates() {
-  const rate = Number(nodes.rate.value);
-  vids.execution.playbackRate = rate;
-  vids.source.playbackRate = Math.max(.0625, clamp(
-    rate / (nodes.sync.checked ? asSeconds(current()?.timeline?.uniform_scale, 1) : 1), 4));
-}
-nodes.sync.addEventListener("change", () => { if (!nodes.sync.checked) linked = false; updateRates(); });
-nodes.rate.addEventListener("change", updateRates);
-nodes.seek.addEventListener("input", () => seekTo(Number(nodes.seek.value)));
-nodes.rewind.addEventListener("click", () => seekTo(getExecutionTime() - 1));
-nodes.forward.addEventListener("click", () => seekTo(getExecutionTime() + 1));
-nodes.play.addEventListener("click", togglePlayback);
-nodes.previous.addEventListener("click", () => renderCase(state.index - 1));
-nodes.next.addEventListener("click", () => renderCase(state.index + 1));
-nodes.filter.addEventListener("change", refreshQueue);
-function setVideoLayout(stacked) {
-  nodes.viewers.classList.toggle("is-stacked", stacked);
-  nodes["video-layout"].setAttribute("aria-pressed", String(stacked));
-  text(nodes["video-layout"], stacked ? "并排比较" : "上下排列");
-}
-setVideoLayout(readStorage("ego-wm-review/v1/stacked", false));
-nodes["video-layout"].addEventListener("click", () => {
-  const stacked = !nodes.viewers.classList.contains("is-stacked");
-  setVideoLayout(stacked);
-  writeStorage("ego-wm-review/v1/stacked", stacked);
-});
-
-async function loadPhysical() {
-  const path = current()?.media?.physical_evidence;
-  if (!path || !nodes["evidence-panel"].open || state.physical || state.loadingPhysical) return;
-  const generation = state.generation;
-  state.loadingPhysical = true;
-  try {
-    const blob = await state.provider.fetchBlob(path);
-    const raw = await blob.text();
-    const tracks = raw.split(/\r?\n/).filter((line) => line.trim()).map((line) => JSON.parse(line));
-    if (generation === state.generation) {
-      state.physical = tracks.filter((track) => Number.isFinite(track.state_time_s));
-      renderPhysical();
-    }
-  } catch {
-    if (generation === state.generation) text(nodes["physical-status"], "物理记录读入失败。");
-  } finally {
-    if (generation === state.generation) state.loadingPhysical = false;
-  }
-}
-async function loadFrameMap(row, generation) {
-  const path = row.media.timestamps;
-  if (!path) return;
-  try {
-    const blob = await state.provider.fetchBlob(path);
-    const frames = (await blob.text()).split(/\r?\n/).filter((line) => line.trim())
-      .map((line) => JSON.parse(line)).filter(
-        (sample) => Number.isFinite(sample.video_time_s) && Number.isFinite(sample.timestamp_s));
-    if (generation === state.generation) state.frames = frames.sort((a, b) => a.video_time_s - b.video_time_s);
-  } catch {
-    if (generation === state.generation) notice("逐帧索引无法读取。记时间将使用回放播放器时间。");
-  }
-}
-function renderPhysical() {
-  if (!nodes["evidence-panel"].open || !state.physical) return;
-  const target = getEvidenceTime();
-  const row = state.physical.find((record) => record.solver_interval_s?.[0] <= target + .000001 &&
-    record.solver_interval_s?.[1] > target - .000001);
-  const parent = nodes["physical-table"];
-  if (!row) {
-    text(nodes["physical-status"], "该时间没有物理记录。");
-    parent.replaceChildren();
-    return;
-  }
-  if (parent.dataset.frame === String(row.state_time_s) && parent.childElementCount) return;
-  parent.dataset.frame = row.state_time_s;
-  text(nodes["physical-status"], `状态 t = ${displayTime(row.state_time_s)} · ${row.contacts_available ? "求解器接触" : "接触证据缺失"}`);
-  const list = (row.object_contacts ?? []).filter((sample) => sample.active).sort((a, b) => (b.normal_force_N ?? 0) - (a.normal_force_N ?? 0)).slice(0, 8);
-  parent.replaceChildren();
-  if (!list.length) return;
-  const table = document.createElement("table");
-  const add = (values, cellType) => {
-    const r = table.insertRow();
-    for (const value of values) {
-      const c = document.createElement(cellType);
-      c.textContent = value;
-      r.append(c);
-    }
-  };
-  add(["手部或支撑", "物体区域", "法向力"], "th");
-  for (const sample of list) add([sample.support_instance_id ?? [sample.hand_id, sample.hand_region].filter(Boolean).join(" · "),
-    sample.patch_id || "—", Number.isFinite(sample.normal_force_N) ? `${sample.normal_force_N.toFixed(2)} N` : "—"], "td");
-  parent.replaceChildren(table);
-}
-nodes["evidence-panel"].addEventListener("toggle", loadPhysical);
-
-function check(values) {
-  if (!profile() || profile() === "__draft__") {
-    nodes.reviewer.focus();
-    return "先填写审阅人编号。";
-  }
-  for (const [key, , label] of reviewChoices()) {
-    const item = values[key];
-    if (!item.value) {
-      inputs[key].radios[0].focus();
-      inputs[key].fieldset.classList.add("invalid");
-      return `请判断「${label}」。`;
-    }
-    const completeRange = item.start !== "" && item.end !== "" &&
-      Number(item.start) >= 0 && Number(item.end) >= Number(item.start) &&
-      (duration("execution") <= 0 || Number(item.end) <= duration("execution") + .02);
-    if (!item.reason || (item.value !== "unknown" || item.start !== "" || item.end !== "") && !completeRange) {
-      inputs[key].fieldset.classList.add("invalid");
-      const input = inputs[key];
-      let target = input.quick.querySelector("button");
-      if (item.reason) {
-        target = input.stamp;
-        if (item.start !== "" || item.end !== "") {
-          input.manual.open = true;
-          target = item.start === "" ? input.start : input.end;
-        }
-      }
-      target?.focus();
-      return `「${label}」需要${item.value === "unknown" && item.start === "" && item.end === ""
-        ? "不可判的原因" : "原因和有效时间区间"}。`;
-    }
-  }
-  return "";
-}
-function chooseNext(index) {
-  const ordered = [...cases().slice(index + 1), ...cases().slice(0, index)];
-  const row = ordered.find((item) => !state.drafts[item.blind_id]?.completed);
-  return row ? cases().indexOf(row) : -1;
-}
-nodes["review-form"].addEventListener("input", (event) => {
-  const active = event.target.closest("fieldset");
-  active?.classList.remove("invalid");
-  for (const [key] of reviewChoices()) {
-    const input = inputs[key];
-    if (!input.radios.includes(event.target) || input.fieldset !== active) continue;
-    const previous = quickReasons[key][input.quick.dataset.value] ?? [];
-    if (previous.includes(input.reason.value)) input.reason.value = "";
-  }
-  text(nodes["completion-error"], "");
-  saveCurrent();
-});
-nodes["review-form"].addEventListener("submit", (event) => {
-  event.preventDefault();
-  if (!current()) return;
-  const error = check(fieldValues());
-  text(nodes["completion-error"], error);
-  if (error) return;
-  saveCurrent(true);
-  const index = chooseNext(state.index);
-  if (index >= 0) {
-    notice("");
-    renderCase(index);
-    nodes.workspace.focus({ preventScroll: true });
-    nodes.workspace.scrollIntoView({ block: "start", behavior: "instant" });
+function continueReview() {
+  const next = nextPending(state.index);
+  if (next >= 0) {
+    openCase(next);
+    ui.workspace.focus({ preventScroll: true });
+    ui.workspace.scrollIntoView({ block: "start", behavior: "instant" });
   } else {
-    notice("这个批次已全部完成。点击上方「导出标注」，把文件交回组织者。");
-    nodes.export.focus();
+    notice("已处理本批次的任务。导出一个文件交回组织者。");
+    ui.export.focus();
   }
-});
-nodes.reviewer.value = readStorage(profileKey, "");
-let lastProfile = profile();
-nodes.reviewer.addEventListener("change", () => {
-  writeStorage(profileKey, profile());
-  if (!manifest() || lastProfile === profile()) return;
-  // An unnamed draft can be attached to a first reviewer. Named reviewers keep separate records.
-  const unnamed = !lastProfile ? state.drafts : null;
-  loadDrafts();
-  if (unnamed && profile()) {
-    state.drafts = { ...unnamed, ...state.drafts };
-    writeStorage(draftKey(), state.drafts);
+}
+function buildRecord(decisions, telemetry) {
+  const item = row();
+  const record = { review_schema_version: 2, blind_id: item.blind_id, reviewer_id: reviewer(),
+    assignment_id: manifest().assignment_id, batch_id: manifest().batch_id, role: manifest().assignment_role,
+    submission_state: "finalized", protocol_id: item.task_card.protocol_id, profile_id: item.task_card.profile_id,
+    correspondence_id: item.assigned_correspondence_id ?? item.task_card.review_correspondence_id ??
+      (item.task_card.allowed_correspondence_ids.length === 1 ? item.task_card.allowed_correspondence_ids[0] : null),
+    evidence_status: effectiveAvailability(), material_issues: state.draft.issues, dimensions: decisions };
+  for (const key of identityFields) record[key] = item[key];
+  if (telemetry) record.interaction_metrics = telemetry;
+  return record;
+}
+function finishTrial(record) {
+  try { state.trialSession.finish(record); }
+  catch (error) { notice(error.message, "error"); }
+}
+function finalize() {
+  if (!row() || ui.workspace.getAttribute("aria-busy") === "true") return;
+  if (!reviewer()) {
+    ui.reviewer.focus();
+    text(ui["completion-error"], "请选择分配给你的审阅编号。");
+    return;
   }
-  lastProfile = profile();
-  updateForm();
+  const decisions = decisionStates();
+  const pending = Object.keys(decisions).find((key) => decisions[key].assessment_state === "pending");
+  if (pending) {
+    const label = labels[pending];
+    const choice = state.draft.decisions[pending];
+    const message = !choice?.verdict ? "请选择「" + label + "」的判断，或稍后再看。"
+      : choice.verdict === "pass" ? "「" + label + "」有要求缺少可核验的证据。请重新判断。"
+      : "请为「" + label + "」选择原因，明确反例请定位对应证据。";
+    text(ui["completion-error"], message);
+    fields[pending].fieldset.querySelector("input,button")?.focus();
+    return;
+  }
+  const telemetry = metrics.snapshot() ?? state.draft.metrics;
+  metrics.leave();
+  const record = buildRecord(decisions, telemetry);
+  state.draft.record = record;
+  putDraft();
   refreshQueue();
+  updateFormStates();
+  if (state.trialSession) finishTrial(record);
+  else continueReview();
+}
+
+ui["review-form"].addEventListener("submit", (event) => { event.preventDefault(); finalize(); });
+ui["load-problem"].addEventListener("click", () => {
+  player.pause();
+  ui["problem-type"].value = "";
+  ui["problem-note"].value = "";
+  ui["problem-dialog"].showModal();
+});
+ui["problem-form"].addEventListener("submit", (event) => {
+  event.preventDefault();
+  const code = ui["problem-type"].value;
+  const note = ui["problem-note"].value.trim();
+  ui["problem-dialog"].close();
+  if (code === "reference_unobservable") {
+    const key = assignedDimensions(row()).find((dimension) => dimension === "C") ?? assignedDimensions(row())[0];
+    if (!key || fields[key].controls.hidden) return;
+    chooseVerdict(key, "unknown");
+    const choice = state.draft.decisions[key];
+    if (note) choice.note = note;
+    text(ui["completion-error"], "请点出哪项必要证据看不清。");
+    fields[key].support.querySelector("button")?.focus();
+    return;
+  }
+  const affected = code === "media_unavailable"
+    ? channels.filter((key) => player.availability[key] === "unavailable") : issueChannels[code];
+  if (!affected) return;
+  const media = player.decoded.execution ?? player.videos.execution.currentTime;
+  state.draft.issues.push({ code, affected_channels: affected, note,
+    evidence: Number.isFinite(media) ? [{ kind: "report_location", time_basis: "execution_media",
+      execution_video_pts_s: media, mapping_hash: row().time_mapping_hash }] : [] });
+  metrics.add("problem_reports");
+  if (code === "other_material_issue") metrics.add("no_option_count");
+  state.draft.record = null;
+  putDraft();
+  updateFormStates();
+  if (Object.values(decisionStates()).every((decision) => decision.assessment_state !== "pending")) finalize();
+});
+ui.later.addEventListener("click", () => {
+  const next = nextPending(state.index);
+  if (next >= 0) openCase(next);
+  notice("本条已保留，可以稍后再看。");
+});
+ui.previous.addEventListener("click", () => openCase(state.index - 1));
+ui.next.addEventListener("click", () => openCase(state.index + 1));
+ui.filter.addEventListener("change", refreshQueue);
+ui.reviewer.addEventListener("change", () => setReviewer(ui.reviewer.value));
+ui.export.addEventListener("click", () => {
+  if (!reviewer() || !manifest()) return;
+  const records = cases().flatMap((entry) => {
+    const record = state.bucket[entry.blind_id]?.[entry.case_fingerprint]?.record;
+    return record?.reviewer_id === reviewer() && record.assignment_id === manifest().assignment_id &&
+      identityFields.every((key) => record[key] === entry[key]) ? [JSON.stringify(record)] : [];
+  });
+  if (!records.length) return;
+  const blob = new Blob([records.join("\n") + "\n"], { type: "application/x-ndjson" });
+  const url = URL.createObjectURL(blob);
+  const link = create("a");
+  link.href = url;
+  link.download = manifest().assignment_id + "-" + reviewer() + ".jsonl";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  notice("已导出 " + records.length + " 条处理记录。");
 });
 
-function exportLabels() {
-  if (!profile() || !manifest()) return;
-  const labels = cases().flatMap((row) => {
-    const draft = state.drafts[row.blind_id];
-    if (!draft?.completed) return [];
-    const output = { blind_id: row.blind_id, reviewer_id: profile(), batch_id: manifest().batch_id,
-      role: manifest().assignment_role === "arbiter" ? "arbiter" : "independent" };
-    for (const [key] of reviewChoices(row)) {
-      const item = draft.details[key];
-      output[key] = { value: item.value, observable: item.value !== "unknown", reason: item.reason,
-        evidence_intervals_s: item.start === "" ? [] : [[Number(item.start), Number(item.end)]] };
-    }
-    return [JSON.stringify(output)];
-  });
-  if (!labels.length) return;
-  const blob = new Blob([labels.join("\n"), "\n"], { type: "application/x-ndjson" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${manifest().batch_id}-${profile().replace(/[^\p{L}\p{N}_.-]/gu, "_")}.jsonl`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-  notice(`已导出 ${labels.length} 条标注。导出文件可以交回组织者。`);
+const layoutKey = "ego-wm-review/v2/stacked";
+function arrange(stacked) {
+  ui.viewers.classList.toggle("is-stacked", stacked);
+  text(ui["video-layout"], stacked ? "并排比较" : "上下排列");
+  ui["video-layout"].setAttribute("aria-pressed", String(stacked));
 }
-nodes.export.addEventListener("click", exportLabels);
-nodes["import-zip"].addEventListener("click", () => nodes["zip-file"].click());
-nodes["import-folder"].addEventListener("click", () => nodes["folder-files"].click());
-nodes["zip-file"].addEventListener("change", (event) => {
-  importFile(fromZip, event.target.files[0]);
+arrange(read(layoutKey, false));
+ui["video-layout"].addEventListener("click", () => {
+  const stacked = !ui.viewers.classList.contains("is-stacked");
+  arrange(stacked);
+  write(layoutKey, stacked);
+});
+ui["help-toggle"].addEventListener("click", () => ui.help.showModal());
+ui["open-default"].addEventListener("click", () => { ui.help.close(); openBatch(() => builtIn()); });
+ui["import-zip"].addEventListener("click", () => ui["zip-file"].click());
+ui["import-folder"].addEventListener("click", () => ui["folder-files"].click());
+ui["zip-file"].addEventListener("change", (event) => {
+  const file = event.target.files[0];
+  if (file) { ui.help.close(); openBatch(() => fromZip(file)); }
   event.target.value = "";
 });
-nodes["folder-files"].addEventListener("change", (event) => {
+ui["folder-files"].addEventListener("change", (event) => {
   const files = [...event.target.files];
-  if (files.length) importFile(fromFolder, files);
+  if (files.length) { ui.help.close(); openBatch(() => fromFolder(files)); }
   event.target.value = "";
 });
-nodes["help-toggle"].addEventListener("click", () => nodes.help.showModal());
-nodes["open-default"].addEventListener("click", () => { nodes.help.close(); loadBuiltIn("review"); });
-nodes["open-demo"].addEventListener("click", () => { nodes.help.close(); loadBuiltIn("demo"); });
-document.addEventListener("keydown", (event) => {
-  if (nodes.help.open || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "VIDEO"].includes(event.target.tagName) ||
-    event.ctrlKey || event.metaKey || event.altKey || !current()) return;
-  if (event.code === "Space") { event.preventDefault(); togglePlayback(); }
-  if (event.key.toLowerCase() === "j") seekTo(getExecutionTime() - 1);
-  if (event.key.toLowerCase() === "l") seekTo(getExecutionTime() + 1);
-});
-if (!storageAvailable) notice("此浏览器禁用了本地草稿。请在关闭页面前导出。");
-loadBuiltIn(new URLSearchParams(location.search).get("demo") === "1" ? "demo" : "review");
+async function start() {
+  try {
+    state.trialSession = await loadTrialPage("v2");
+    if (!state.trialSession) {
+      await openBatch(() => builtIn());
+      return;
+    }
+    ui.export.hidden = true;
+    ui["open-default"].hidden = true;
+    ui["import-zip"].hidden = ui["import-folder"].hidden = true;
+    installTrialControls(state.trialSession, () => {
+      if (!row() || !reviewer()) return;
+      metrics.add("no_option_count");
+      const record = buildRecord(decisionStates(), metrics.snapshot());
+      record.submission_state = "needs_interface_exit";
+      finishTrial(record);
+    });
+    await openBatch(() => state.trialSession.provider);
+    ui["open-default"].hidden = true;
+  } catch (error) {
+    notice(error.message, "error");
+    ui.workspace.setAttribute("aria-busy", "false");
+  }
+}
+start();

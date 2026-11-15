@@ -1,0 +1,98 @@
+[
+  {
+    "trial_position": 0,
+    "interface": "v1",
+    "assignment_id": "027385eb0faeb3ccc128",
+    "blind_id": "ff60c001a7564856e022"
+  },
+  {
+    "trial_position": 1,
+    "interface": "v2",
+    "assignment_id": "4db8b28a94357b1ae107",
+    "blind_id": "c57cffde1d0c06316960"
+  },
+  {
+    "trial_position": 2,
+    "interface": "v2",
+    "assignment_id": "4db8b28a94357b1ae107",
+    "blind_id": "786733526d31979d5ada"
+  },
+  {
+    "trial_position": 3,
+    "interface": "v1",
+    "assignment_id": "027385eb0faeb3ccc128",
+    "blind_id": "fe8bb81797f19becab11"
+  },
+  {
+    "trial_position": 4,
+    "interface": "v1",
+    "assignment_id": "027385eb0faeb3ccc128",
+    "blind_id": "0b1d4df16743a55eee76"
+  },
+  {
+    "trial_position": 5,
+    "interface": "v2",
+    "assignment_id": "4db8b28a94357b1ae107",
+    "blind_id": "56c5e3068b652ce53b60"
+  },
+  {
+    "trial_position": 6,
+    "interface": "v2",
+    "assignment_id": "4db8b28a94357b1ae107",
+    "blind_id": "d463a1f80c644bf4b71a"
+  },
+  {
+    "trial_position": 7,
+    "interface": "v1",
+    "assignment_id": "027385eb0faeb3ccc128",
+    "blind_id": "d9005478a247d54889c1"
+  },
+  {
+    "trial_position": 8,
+    "interface": "v1",
+    "assignment_id": "027385eb0faeb3ccc128",
+    "blind_id": "2e37102231811c08da66"
+  },
+  {
+    "trial_position": 9,
+    "interface": "v2",
+    "assignment_id": "4db8b28a94357b1ae107",
+    "blind_id": "a5b5f4e5f9152e2d8795"
+  },
+  {
+    "trial_position": 10,
+    "interface": "v2",
+    "assignment_id": "4db8b28a94357b1ae107",
+    "blind_id": "f73f75c71032ba32544b"
+  },
+  {
+    "trial_position": 11,
+    "interface": "v1",
+    "assignment_id": "027385eb0faeb3ccc128",
+    "blind_id": "e815f7ccc79322ce9617"
+  },
+  {
+    "trial_position": 12,
+    "interface": "v1",
+    "assignment_id": "027385eb0faeb3ccc128",
+    "blind_id": "1728193a3539b62a48ec"
+  },
+  {
+    "trial_position": 13,
+    "interface": "v2",
+    "assignment_id": "4db8b28a94357b1ae107",
+    "blind_id": "25e4b542b9f35df1e079"
+  },
+  {
+    "trial_position": 14,
+    "interface": "v2",
+    "assignment_id": "4db8b28a94357b1ae107",
+    "blind_id": "1895098f08bf633032c4"
+  },
+  {
+    "trial_position": 15,
+    "interface": "v1",
+    "assignment_id": "027385eb0faeb3ccc128",
+    "blind_id": "dfb5eb2bddd4c84d4461"
+  }
+]

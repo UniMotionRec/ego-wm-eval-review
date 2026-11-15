@@ -5,5 +5,9 @@ __pycache__/
 *.jsonl
 !docs/review/media/*.timestamps.jsonl
 !docs/review/media/*.physical_evidence.jsonl
+!docs/review-v2/media/*.timestamps.jsonl
+!docs/review-v2/media/*.source_timestamps.jsonl
+!docs/review-v2/media/*.physical_evidence.jsonl
+!docs/a1/R[12]-v[12].zip
 review_private/
 pipeline_outputs/

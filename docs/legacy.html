@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Ego WM 人手到机器人动作的独立盲审。">
+  <title>Ego WM · 盲审工作台</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./legacy-app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#workspace">跳到审阅</a>
+  <header class="masthead">
+    <div class="mast-inner">
+      <a class="brand" href="./" aria-label="Ego WM 盲审工作台首页"><span class="brand-mark" aria-hidden="true">E</span><span>Ego WM <span class="brand-sub">盲审工作台</span></span></a>
+      <div class="mast-actions">
+        <button class="subtle" id="help-toggle" type="button">审阅说明</button>
+        <button class="primary" id="export" type="button" disabled>导出标注 <span id="export-count">0</span></button>
+      </div>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" aria-label="批次与任务">
+      <div class="batch-panel">
+        <div class="overline" id="batch-kind">批次</div>
+        <h2 id="batch-title">正在载入</h2>
+        <div class="progress-line"><span id="progress-text">0 / 0 已完成</span><span id="progress-percent"></span></div>
+        <progress id="progress" value="0" max="1" aria-label="审阅完成度"></progress>
+      </div>
+      <div class="queue">
+        <div class="queue-header"><h3>任务列表</h3><label class="filter"><input id="filter" type="checkbox"> 只看未完成</label></div>
+        <ol id="case-list"></ol>
+      </div>
+      <div class="profile">
+        <label for="reviewer">审阅人编号</label>
+        <input id="reviewer" type="text" placeholder="例如你的 GitHub 用户名" autocomplete="off" maxlength="60">
+        <p>用同一编号续审。草稿自动保存在本浏览器。</p>
+      </div>
+    </aside>
+    <main id="workspace" class="main" tabindex="-1" aria-busy="true">
+      <p id="notice" class="notice" aria-live="polite" hidden></p>
+      <section class="case-head" aria-labelledby="case-title">
+        <div>
+          <div class="overline" id="case-counter">审阅任务</div>
+          <h1 id="case-title">载入审阅素材</h1>
+          <p id="case-description"></p>
+        </div>
+        <div class="navigation">
+          <button id="previous" class="secondary" type="button" aria-label="上一条" disabled>← <span>上一条</span></button>
+          <button id="next" class="secondary" type="button" aria-label="下一条" disabled><span>下一条</span> →</button>
+        </div>
+      </section>
+      <div class="mobile-layout"><button id="video-layout" class="secondary" type="button" aria-controls="viewers" aria-pressed="false">上下排列</button></div>
+      <section id="viewers" class="viewers" aria-label="同步视频">
+        <article class="media-panel">
+          <div class="media-header"><h2>人类示范</h2><span id="source-time">0.00 s</span></div>
+          <div class="media-stage">
+            <video id="source" controls playsinline preload="metadata" aria-label="人类示范视频"></video>
+            <p id="source-empty" class="media-empty" hidden>此条缺少源视频</p>
+          </div>
+        </article>
+        <article class="media-panel">
+          <div class="media-header"><h2>机器人回放</h2><span id="execution-time">0.00 s</span></div>
+          <div class="media-stage">
+            <video id="execution" controls playsinline preload="metadata" aria-label="机器人执行视频"></video>
+            <p id="execution-empty" class="media-empty" hidden>此条缺少回放视频</p>
+          </div>
+        </article>
+      </section>
+      <section class="transport" aria-label="同步播放控制">
+        <button id="play" class="secondary" type="button">同时播放</button>
+        <button id="rewind" class="icon-button" type="button" title="回退 1 秒" aria-label="回退 1 秒">−1 s</button>
+        <div class="seek-wrap"><input id="seek" type="range" min="0" max="1" step="0.001" value="0" aria-label="执行时间轴"><output id="position" for="seek">0.00 s</output></div>
+        <button id="forward" class="icon-button" type="button" title="前进 1 秒" aria-label="前进 1 秒">+1 s</button>
+        <label class="speed"><span>速度</span><select id="rate" aria-label="播放速度"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option></select></label>
+        <label class="sync"><input id="sync" type="checkbox" checked> 同步</label>
+      </section>
+      <details id="evidence-panel" class="physical" hidden>
+        <summary>查看当前帧的物理记录</summary>
+        <p id="physical-status">展开后载入。</p>
+        <div id="physical-table"></div>
+      </details>
+      <section class="judgment" aria-labelledby="judgment-title">
+        <div class="judgment-head"><div><h2 id="judgment-title">独立判定</h2><p>先看完整视频。证据时间以机器人回放为准。</p></div><span id="save-status" class="save-status" aria-live="polite"></span></div>
+        <form id="review-form" novalidate>
+          <div id="dimensions"></div>
+          <div class="form-footer"><p id="completion-error" class="error" aria-live="polite"></p><button id="complete" class="primary" type="submit">完成并下一条 →</button></div>
+        </form>
+      </section>
+    </main>
+  </div>
+  <dialog id="help">
+    <div class="dialog-head"><h2>审阅说明</h2><form method="dialog"><button class="icon-button" type="submit" aria-label="关闭说明">×</button></form></div>
+    <ol>
+      <li>首页已载入六条开发样例。输入你的审阅编号，例如 GitHub 用户名。</li>
+      <li>对照人类示范和机器人回放，分别判断任务完成、接触方式、动作过程。点击「记时间」引用当前回放时间。</li>
+      <li>点击符合实际观察的快捷依据，也可以自行填写。能判断时记下对应时间。完成后一次导出文件交回组织者。</li>
+    </ol>
+    <p>首页批次刷新后可从上次停留的位置继续。</p>
+    <p>收到分歧复核任务时，页面只显示需要复核的判断项。</p>
+    <p><kbd>空格</kbd> 播放/暂停，<kbd>J</kbd> <kbd>L</kbd> 前后跳 1 秒。填写表单时快捷键暂停。</p>
+    <div class="import-actions">
+      <button id="open-default" class="secondary" type="button">打开开发盲审批次</button>
+      <button id="open-demo" class="secondary" type="button">打开练习批次</button>
+    </div>
+    <div class="import-actions">
+      <button class="secondary" id="import-zip" type="button">导入其他审阅包</button>
+      <button class="link-button" id="import-folder" type="button">选择文件夹</button>
+    </div>
+    <input type="file" id="zip-file" accept=".zip,application/zip" hidden>
+    <input type="file" id="folder-files" webkitdirectory multiple hidden>
+    <p><a href="https://github.com/UniMotionRec/ego-wm-eval-review/blob/main/docs/review/ATTRIBUTION.md" target="_blank" rel="noopener">示范视频来源与许可证</a></p>
+  </dialog>
+  <noscript><p class="notice">请在浏览器启用 JavaScript 后打开工作台。</p></noscript>
+</body>
+</html>
