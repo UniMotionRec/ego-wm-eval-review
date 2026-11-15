@@ -137,19 +137,33 @@ export async function fromZip(file) {
   return localProvider(entries, read);
 }
 
+async function readHosted(url, parse) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const retry = attempt === 1;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), retry ? 9000 : 6000);
+    try {
+      const address = new URL(url);
+      if (retry) address.searchParams.set("retry", "1");
+      const response = await fetch(address, { signal: controller.signal, cache: retry ? "reload" : "default" });
+      if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
+      return await parse(response);
+    } catch (error) {
+      if (retry) throw new Error("连接超时或素材暂时无法载入。", { cause: error });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export async function builtIn(kind = "review") {
   const base = new URL({ demo: "./demo/", legacy: "./review/", review: "./review-v2/" }[kind], import.meta.url);
-  const response = await fetch(new URL("review-manifest.json", base));
-  if (!response.ok) throw new Error("批次暂时无法载入。请刷新页面重试。");
-  const manifest = validateManifest(await response.json());
+  const manifest = validateManifest(await readHosted(new URL("review-manifest.json", base), (response) => response.json()));
   if (manifest.schema_version === 2) await Promise.all(manifest.cases.map(checkCaseIdentity));
   const cache = new Map();
   async function fetchBlob(path) {
     if (!cache.has(path)) {
-      cache.set(path, fetch(new URL(path, base)).then((response) => {
-        if (!response.ok) throw new Error("素材暂时无法载入。请刷新页面重试。");
-        return response.blob();
-      }).catch((error) => {
+      cache.set(path, readHosted(new URL(path, base), (response) => response.blob()).catch((error) => {
         cache.delete(path);
         throw error;
       }));

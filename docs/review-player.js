@@ -127,17 +127,22 @@ export class ReviewPlayer {
 
   async loadVideo(side, key, generation) {
     const video = this.videos[side];
-    this.nodes[side + "-empty"].hidden = true;
+    const label = this.nodes[side + "-empty"];
+    const hosted = this.provider.kind !== "local";
+    label.hidden = !hosted;
+    if (hosted) text(label, side === "source" ? "正在加载示范视频…" : "正在加载机器人回放…");
+    const isCurrent = () => generation === this.generation && (side === "source" || key === this.view);
     try {
       const blob = await this.verifiedBlob(key);
-      if (generation !== this.generation) return;
+      if (!isCurrent()) return;
       const url = URL.createObjectURL(blob);
       this.urls.push(url);
       video.dataset.batchGeneration = String(generation);
+      video.preload = hosted ? "auto" : "metadata";
       video.src = url;
       this.capture(side, generation);
     } catch {
-      if (generation === this.generation) this.videoError(side);
+      if (isCurrent()) this.videoError(side);
     }
   }
 
@@ -178,7 +183,8 @@ export class ReviewPlayer {
     this.availability[side] = "unavailable";
     const label = this.nodes[side + "-empty"];
     label.hidden = false;
-    text(label, "素材缺失、内容不符或无法播放");
+    text(label, this.provider.kind === "local" ? "素材缺失、内容不符或无法播放。"
+      : "视频加载失败，可以重新加载本条素材。");
     this.updated();
   }
 
@@ -190,6 +196,7 @@ export class ReviewPlayer {
       return;
     }
     this.availability[side] = "valid";
+    this.nodes[side + "-empty"].hidden = true;
     this.updated();
   }
 
@@ -229,6 +236,7 @@ export class ReviewPlayer {
   }
   metadata(side) {
     if (!this.row || this.videos[side].dataset.batchGeneration !== String(this.generation)) return;
+    this.nodes[side + "-empty"].hidden = true;
     this.objectTime(side, this.nextStart[side] ?? 0);
     delete this.nextStart[side];
     this.rates();
@@ -250,9 +258,14 @@ export class ReviewPlayer {
     this.linked = this.canSync();
     if (this.linked) this.objectTime("source", this.sourceAt(this.position()));
     await Promise.allSettled(Object.entries(this.videos).filter(([side]) =>
-      this.availability[side] === "valid" && !(preparing && side === "source"))
+      this.canPlay(side) && !(preparing && side === "source"))
       .map(([, video]) => video.play()));
     this.paint();
+  }
+  canPlay(side) {
+    const video = this.videos[side];
+    return video.dataset.batchGeneration === String(this.generation) && video.readyState >= 1 &&
+      this.availability[side] !== "unavailable";
   }
   canSync() {
     return this.availability.timing === "valid" && this.nodes.sync.checked;
@@ -352,10 +365,14 @@ export class ReviewPlayer {
     text(this.nodes.position, time(this.videos.execution.currentTime));
     text(this.nodes["source-time"], time(this.videos.source.currentTime));
     text(this.nodes["execution-time"], time(this.videos.execution.currentTime));
+    this.nodes.play.disabled = !Object.keys(this.videos).some((side) => this.canPlay(side));
     text(this.nodes.play, Object.values(this.videos).some((video) => !video.paused) ? "暂停" : "播放");
     this.nodes.sync.disabled = timing !== "valid";
     this.nodes["frame-prev"].disabled = this.nodes["frame-next"].disabled =
       !videoReady || !this.frames || !this.videos.execution.requestVideoFrameCallback;
+    this.nodes["retry-material"].hidden = this.provider.kind === "local" || ![
+      ["source", "source"], ["execution", this.view], ["timing", "timestamps"], ["physics", "physical_evidence"],
+    ].some(([side, asset]) => this.row.media[asset] && this.availability[side] === "unavailable");
     this.nodes["timeline-status"].dataset.status = timing;
     text(this.nodes["timeline-status"], point
       ? "回放帧 " + point.execution_frame_id + " · " +

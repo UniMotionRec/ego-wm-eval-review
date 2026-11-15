@@ -1,7 +1,7 @@
-import { builtIn, fromFolder, fromZip } from "./bundle.js";
+import { builtIn, fromFolder, fromZip } from "./bundle.js?v=20261115-2";
 import { assignedDimensions, channels, dimensions, evidenceAlternative, requirementWindow, skippedBy,
   statuses, unknownReasons } from "./review-contract.js";
-import { ReviewPlayer } from "./review-player.js";
+import { ReviewPlayer } from "./review-player.js?v=20261115-2";
 import { addTrialMarker, ReviewMetrics } from "./review-metrics.js";
 import { installTrialControls, loadTrialPage } from "./a1.js";
 
@@ -703,6 +703,7 @@ ui.later.addEventListener("click", () => {
 });
 ui.previous.addEventListener("click", () => openCase(state.index - 1));
 ui.next.addEventListener("click", () => openCase(state.index + 1));
+ui["retry-material"].addEventListener("click", () => openCase(state.index));
 ui.filter.addEventListener("change", refreshQueue);
 ui.reviewer.addEventListener("change", () => setReviewer(ui.reviewer.value));
 ui.export.addEventListener("click", () => {

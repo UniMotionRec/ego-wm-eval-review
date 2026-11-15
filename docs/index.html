@@ -7,7 +7,7 @@
   <meta name="description" content="Ego WM 人手到机器人动作的独立盲审。">
   <title>Ego WM · 盲审工作台</title>
   <link rel="stylesheet" href="./style.css">
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=20261115-2"></script>
 </head>
 <body class="review-v2">
   <a class="skip" href="#workspace">跳到审阅</a>
@@ -90,6 +90,7 @@
         <button id="frame-prev" class="secondary" type="button" disabled>前一帧</button>
         <button id="frame-next" class="secondary" type="button" disabled>后一帧</button>
         <span id="timeline-status" class="timeline-status">正在核对时间索引。</span>
+        <button id="retry-material" class="secondary" type="button" hidden>重新加载本条素材</button>
       </div>
       <details id="evidence-panel" class="physical" hidden>
         <summary>查看当前帧的物理记录</summary>
