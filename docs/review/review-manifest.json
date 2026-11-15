@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "batch_id": "ego-wm-e0-six-case",
-  "title": "Ego WM · 人手到机器人",
+  "title": "人手到机器人",
   "cases": [
     {
       "blind_id": "0c6d68e999e3a51f",
       "task": {
-        "title": "提起并保持 · 纸盒",
+        "title": "纸盒 · 提起并保持",
         "description": "用右手把纸盒提离原桌面，并保持到动作结束。",
         "rubric": {
           "functional": "观察纸盒何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
@@ -28,7 +28,7 @@
     {
       "blind_id": "5d41efc260b0111a",
       "task": {
-        "title": "提起并保持 · 纸盒",
+        "title": "纸盒 · 提起并保持",
         "description": "用右手把纸盒提离原桌面，并保持到动作结束。",
         "rubric": {
           "functional": "观察纸盒何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
@@ -50,7 +50,7 @@
     {
       "blind_id": "718aec97574d52e6",
       "task": {
-        "title": "搬运并放下 · 杯子",
+        "title": "杯子 · 搬运并放下",
         "description": "左手握住杯柄，将起始时已握住的杯子移到桌面，放稳后撤手。右手操作的是另一件物体。",
         "rubric": {
           "functional": "依次观察搬运、在目标桌面上释放、放下后保持稳定。",
@@ -72,7 +72,7 @@
     {
       "blind_id": "a64137cb30be6ced",
       "task": {
-        "title": "搬运并放下 · 杯子",
+        "title": "杯子 · 搬运并放下",
         "description": "左手握住杯柄，将起始时已握住的杯子移到桌面，放稳后撤手。右手操作的是另一件物体。",
         "rubric": {
           "functional": "依次观察搬运、在目标桌面上释放、放下后保持稳定。",
@@ -94,7 +94,7 @@
     {
       "blind_id": "e0fa7c9723075fb6",
       "task": {
-        "title": "提起并保持 · 香蕉",
+        "title": "香蕉 · 提起并保持",
         "description": "右手靠近香蕉，将它提离桌面，并保持到动作结束。",
         "rubric": {
           "functional": "观察香蕉何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
@@ -116,7 +116,7 @@
     {
       "blind_id": "f13ed1bcaa569c14",
       "task": {
-        "title": "提起并保持 · 香蕉",
+        "title": "香蕉 · 提起并保持",
         "description": "右手靠近香蕉，将它提离桌面，并保持到动作结束。",
         "rubric": {
           "functional": "观察香蕉何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
