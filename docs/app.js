@@ -8,6 +8,23 @@ const choices = [
   ["motion", "M", "动作过程", "核对运动路径、掌部朝向、关键阶段和时序。"],
 ];
 const answers = [["pass", "符合"], ["fail", "偏离"], ["unknown", "无法判断"]];
+const quickReasons = {
+  functional: {
+    pass: ["必要动作和结束状态均符合要求"],
+    fail: ["缺少必要动作", "结束状态或保持时间不符合要求", "物体掉落或失控"],
+    unknown: ["物体或支撑面被遮挡", "关键阶段缺失", "执行证据不清楚"],
+  },
+  contact: {
+    pass: ["手别、接触部位和顺序均符合要求"],
+    fail: ["手别或手指不同", "接触的物体部位不同", "接触顺序不同"],
+    unknown: ["手指被遮挡", "物体接触部位看不清", "接触记录缺失"],
+  },
+  motion: {
+    pass: ["动作路径和关键阶段的顺序一致"],
+    fail: ["运动方向或路径不同", "掌部朝向不同", "动作顺序或时序不同"],
+    unknown: ["运动轨迹不完整", "关键时刻看不清", "时间轴证据缺失"],
+  },
+};
 const state = { provider: null, index: 0, drafts: {}, urls: [], generation: 0, request: 0,
   physical: null, frames: null, loadingPhysical: false };
 const inputs = {};
@@ -26,6 +43,9 @@ const profileKey = "ego-wm-review/v1/reviewer";
 const manifest = () => state.provider?.manifest;
 const cases = () => manifest()?.cases ?? [];
 const current = () => cases()[state.index];
+const reviewChoices = (row = current()) => row?.review_dimensions
+  ? choices.filter(([key]) => row.review_dimensions.includes(key))
+  : choices;
 const profile = () => nodes.reviewer.value.trim();
 const draftKey = () => `ego-wm-review/v1/${manifest().batch_id}/${profile() || "__draft__"}`;
 const text = (item, contents) => { item.textContent = typeof contents === "string" ? contents : ""; };
@@ -100,11 +120,59 @@ for (const [key, code, label, description] of choices) {
     if (end.value === "" || Number(value) > Number(end.value)) end.value = value;
     saveCurrent();
   });
-  support.append(field("依据", reason, "reason"), field("起点 s", start, "time-input"),
-    field("终点 s", end, "time-input"), stamp);
-  fieldset.append(row, support);
+  const evidence = document.createElement("div");
+  evidence.className = "evidence-controls";
+  const range = document.createElement("span");
+  range.className = "evidence-range";
+  range.setAttribute("aria-live", "polite");
+  evidence.append(stamp, range);
+  const manual = document.createElement("details");
+  manual.className = "manual-evidence";
+  const summary = document.createElement("summary");
+  summary.textContent = "手填依据或时间";
+  const fields = document.createElement("div");
+  fields.className = "manual-fields";
+  fields.append(field("依据", reason, "reason"), field("起点 s", start, "time-input"),
+    field("终点 s", end, "time-input"));
+  manual.append(summary, fields);
+  support.append(evidence, manual);
+  const quick = document.createElement("div");
+  quick.className = "quick-reasons";
+  quick.setAttribute("aria-label", `${label}快捷依据`);
+  quick.hidden = true;
+  fieldset.append(row, quick, support);
   nodes.dimensions.append(fieldset);
-  inputs[key] = { radios, explain, support, reason, start, end, fieldset };
+  inputs[key] = { radios, explain, quick, support, reason, start, end, range, stamp, manual, fieldset };
+}
+
+function updateReasons(key, value) {
+  const input = inputs[key];
+  input.quick.hidden = !value;
+  if (input.quick.dataset.value !== value) {
+    input.quick.dataset.value = value;
+    input.quick.replaceChildren(...(quickReasons[key][value] ?? []).map((option) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "secondary";
+      button.textContent = option;
+      button.addEventListener("click", () => {
+        input.reason.value = option;
+        input.manual.open = false;
+        input.fieldset.classList.remove("invalid");
+        text(nodes["completion-error"], "");
+        saveCurrent();
+      });
+      return button;
+    }));
+  }
+  for (const button of input.quick.children) {
+    button.setAttribute("aria-pressed", String(button.textContent === input.reason.value.trim()));
+  }
+  const startTime = input.start.value;
+  const endTime = input.end.value;
+  text(input.range, startTime === "" || endTime === ""
+    ? (value === "unknown" ? "时间可选" : "请记下证据时间")
+    : startTime === endTime ? displayTime(Number(startTime)) : `${displayTime(Number(startTime))} – ${displayTime(Number(endTime))}`);
 }
 
 function getDraft() {
@@ -112,10 +180,11 @@ function getDraft() {
 }
 function fieldValues() {
   const values = {};
-  for (const [key, , ,] of choices) {
+  for (const [key] of reviewChoices()) {
     const input = inputs[key];
     const value = input.radios.find((item) => item.checked)?.value ?? "";
     input.support.hidden = !value;
+    updateReasons(key, value);
     values[key] = { value, reason: input.reason.value.trim(), start: input.start.value, end: input.end.value };
   }
   return values;
@@ -131,6 +200,7 @@ function saveCurrent(completed = false) {
 function updateForm() {
   const row = current();
   const draft = getDraft();
+  const assigned = reviewChoices(row).map(([key]) => key);
   for (const [key, , , fallback] of choices) {
     const input = inputs[key];
     const value = draft.details[key] ?? {};
@@ -140,8 +210,11 @@ function updateForm() {
     input.start.value = value.start ?? "";
     input.end.value = value.end ?? "";
     input.support.hidden = !value.value;
+    input.manual.open = Boolean(value.reason && !(quickReasons[key][value.value] ?? []).includes(value.reason));
+    updateReasons(key, value.value ?? "");
     input.fieldset.classList.remove("invalid");
-    input.fieldset.disabled = !row;
+    input.fieldset.disabled = !row || !assigned.includes(key);
+    input.fieldset.hidden = !assigned.includes(key);
   }
   text(nodes["completion-error"], "");
   text(nodes["save-status"], draft.completed ? "已完成" :
@@ -286,7 +359,7 @@ async function setProvider(provider) {
   state.provider = provider;
   loadDrafts();
   const kinds = { review: "开发盲审批次", demo: "练习批次", local: "导入的审阅批次" };
-  text(nodes["batch-kind"], kinds[provider.kind]);
+  text(nodes["batch-kind"], manifest().assignment_role === "arbiter" ? "分歧复核" : kinds[provider.kind]);
   nodes["open-default"].hidden = provider.kind === "review";
   nodes["open-demo"].hidden = provider.kind === "demo";
   text(nodes["batch-title"], manifest().title || manifest().batch_id);
@@ -547,7 +620,7 @@ function check(values) {
     nodes.reviewer.focus();
     return "先填写审阅人编号。";
   }
-  for (const [key, , label] of choices) {
+  for (const [key, , label] of reviewChoices()) {
     const item = values[key];
     if (!item.value) {
       inputs[key].radios[0].focus();
@@ -559,7 +632,16 @@ function check(values) {
       (duration("execution") <= 0 || Number(item.end) <= duration("execution") + .02);
     if (!item.reason || (item.value !== "unknown" || item.start !== "" || item.end !== "") && !completeRange) {
       inputs[key].fieldset.classList.add("invalid");
-      inputs[key][item.reason ? "start" : "reason"].focus();
+      const input = inputs[key];
+      let target = input.quick.querySelector("button");
+      if (item.reason) {
+        target = input.stamp;
+        if (item.start !== "" || item.end !== "") {
+          input.manual.open = true;
+          target = item.start === "" ? input.start : input.end;
+        }
+      }
+      target?.focus();
       return `「${label}」需要${item.value === "unknown" && item.start === "" && item.end === ""
         ? "不可判的原因" : "原因和有效时间区间"}。`;
     }
@@ -572,7 +654,14 @@ function chooseNext(index) {
   return row ? cases().indexOf(row) : -1;
 }
 nodes["review-form"].addEventListener("input", (event) => {
-  event.target.closest("fieldset")?.classList.remove("invalid");
+  const active = event.target.closest("fieldset");
+  active?.classList.remove("invalid");
+  for (const [key] of reviewChoices()) {
+    const input = inputs[key];
+    if (!input.radios.includes(event.target) || input.fieldset !== active) continue;
+    const previous = quickReasons[key][input.quick.dataset.value] ?? [];
+    if (previous.includes(input.reason.value)) input.reason.value = "";
+  }
   text(nodes["completion-error"], "");
   saveCurrent();
 });
@@ -618,7 +707,7 @@ function exportLabels() {
     if (!draft?.completed) return [];
     const output = { blind_id: row.blind_id, reviewer_id: profile(), batch_id: manifest().batch_id,
       role: manifest().assignment_role === "arbiter" ? "arbiter" : "independent" };
-    for (const [key] of choices) {
+    for (const [key] of reviewChoices(row)) {
       const item = draft.details[key];
       output[key] = { value: item.value, observable: item.value !== "unknown", reason: item.reason,
         evidence_intervals_s: item.start === "" ? [] : [[Number(item.start), Number(item.end)]] };

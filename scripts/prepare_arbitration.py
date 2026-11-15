@@ -50,8 +50,10 @@ def prepare(archive, label_paths, output):
             votes = list(labels[case["blind_id"]].values())
             if len(votes) < 2:
                 pending += 1
-            elif any(votes[0][key]["value"] != votes[1][key]["value"] for key in DIMENSIONS):
-                selected.append(case)
+            else:
+                disputed = [key for key in DIMENSIONS if votes[0][key]["value"] != votes[1][key]["value"]]
+                if disputed:
+                    selected.append({**case, "review_dimensions": disputed})
         if not selected:
             return {"disputed_cases": 0, "awaiting_two_reviews": pending}
         clean_manifest = {
@@ -73,7 +75,9 @@ def prepare(archive, label_paths, output):
                     with source.open(str(folder / path)) as incoming, target.open(str(path), "w") as outgoing:
                         while chunk := incoming.read(1024 * 1024):
                             outgoing.write(chunk)
-        return {"disputed_cases": len(selected), "awaiting_two_reviews": pending, "arbiter_bundle": str(output)}
+        return {"disputed_cases": len(selected),
+                "disputed_dimensions": sum(len(case["review_dimensions"]) for case in selected),
+                "awaiting_two_reviews": pending, "arbiter_bundle": str(output)}
 
 
 def main():

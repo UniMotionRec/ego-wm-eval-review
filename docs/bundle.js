@@ -3,6 +3,7 @@ const types = {
   mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime",
   json: "application/json", jsonl: "application/x-ndjson", vtt: "text/vtt",
 };
+const dimensions = ["functional", "contact", "motion"];
 
 function relative(path) {
   return typeof path === "string" && path.length > 0 &&
@@ -23,6 +24,13 @@ export function validateManifest(data, has = () => true) {
       throw new Error("任务编号重复或清单格式不正确。");
     }
     seen.add(row.blind_id);
+    if (row.review_dimensions != null) {
+      const assigned = row.review_dimensions;
+      if (data.assignment_role !== "arbiter" || !Array.isArray(assigned) || assigned.length === 0 ||
+        assigned.some((key) => !dimensions.includes(key)) || new Set(assigned).size !== assigned.length) {
+        throw new Error("分歧复核任务缺少有效的判断项。");
+      }
+    }
     for (const key of ["source", "execution", "source_captions", "execution_captions", "timestamps", "physical_evidence"]) {
       const value = row.media[key];
       if (value != null && (!relative(value) || !has(value))) {
