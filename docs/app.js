@@ -84,9 +84,11 @@ const coveredByReference = (requirement) =>
 
 function attainedAlternative(req, kind, point, physical) {
   const availability = effectiveAvailability();
+  const window = requirementWindow(row(), req);
   return req.evidence_options.find((option) => option.every((channel) => availability[channel] === "valid") &&
+    (kind === "event_anchor" || !option.includes("execution") || experiments() || player.coversWindow(window)) &&
     (!option.includes("physics") || (kind === "event_anchor" ? physical?.contacts_available :
-      player.physicalReady(requirementWindow(row(), req)))) &&
+      player.physicalReady(window))) &&
     (kind !== "event_anchor" || !option.includes("timing") || point));
 }
 
@@ -123,7 +125,7 @@ function gatherEvidence(req, kind) {
     return { ...base, kind: "physical_transition", time_basis: "trace", trace_time_s: physical.state_time_s,
       state_index: physical.transition_index + 1, transition_index: physical.transition_index, provenance: "reviewer_selected" };
   }
-  if (wholeScope && !alternative.includes("timing") && alternative.includes("physics") === false &&
+  if (wholeScope && !alternative.includes("timing") && !alternative.includes("physics") &&
       alternative.includes("execution") &&
       Number.isFinite(player.decoded.execution) && !player.videos.execution.seeking) {
     return { ...base, kind, time_basis: "execution_media", execution_video_pts_s: player.decoded.execution,

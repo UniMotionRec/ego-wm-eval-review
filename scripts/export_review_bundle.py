@@ -13,6 +13,11 @@ import subprocess
 import tempfile
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
+if __package__:
+    from .review_contract import bind_case, hash_file, validate_manifest
+else:
+    from review_contract import bind_case, hash_file, validate_manifest
+
 
 _TASK_TITLES = {
     "lift_hold": "Lift and hold",
@@ -247,8 +252,6 @@ def _check_v2_evidence(stage, case):
         raise ValueError("Delivered frame map does not cover the declared score window")
 
 def _enrich_v2(case, packet, stage):
-    from review_contract import bind_case, hash_file
-
     timeline = dict(packet["timeline"])
     if timeline.get("time_policy") not in {"identity", "declared"}:
         raise ValueError("Time mapping must be explicitly identity or declared")
@@ -333,8 +336,6 @@ def _write_batch(audit, stage, batch_id, title, *, web_compat, mapping=None, run
         raise ValueError("No blinded review packets found")
     manifest = {"schema_version": schema_version, "batch_id": batch_id, "title": title, "cases": cases}
     if schema_version == 2:
-        from review_contract import validate_manifest
-
         manifest.update(review_schema_version=2, **assignment)
         validate_manifest(manifest)
     _write_json(stage / "review-manifest.json", manifest)

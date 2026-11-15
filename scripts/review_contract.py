@@ -458,6 +458,16 @@ def _check_frame(entry, index):
     return evidence
 
 
+def _execution_covers(index, required_span):
+    frames = index["execution"]
+    if not frames:
+        return False
+    start = next(iter(frames.values()))["trace_time_s"]
+    end = frames[next(reversed(frames))]["trace_time_s"]
+    # At 24 FPS a final subframe can be complete without a separate render.
+    return start <= required_span[0] + .05 and end >= required_span[1] - .05
+
+
 def _validate_evidence(evidence, required, case, status, index, verdict, decisive):
     require(isinstance(evidence, list), "evidence must be a list")
     witnessed = set()
@@ -527,13 +537,13 @@ def _validate_evidence(evidence, required, case, status, index, verdict, decisiv
                 else:
                     require(_contains(span, required_span), f"evidence does not cover the {claim} window")
                 if kind in {"reviewed_scope", "observation_window"} and {"execution", "timing"} & channels:
-                    observed = [frame["trace_time_s"] for frame in index["execution"].values()]
-                    tolerance = timeline.get("execution_frame_tolerance_s", 0.05)
-                    require(observed and _number(tolerance) and tolerance >= 0
-                            and observed[0] <= required_span[0] + tolerance and observed[-1] >= required_span[1] - tolerance,
+                    require(_execution_covers(index, required_span),
                             "execution capture does not cover the required observation window")
             elif kind in {"reviewed_scope", "observation_window"}:
                 require(full_window and _contains(span, available), "unmapped scope needs the complete declared visual clip")
+                if basis == "execution_media" and index and index["execution"]:
+                    require(_execution_covers(index, required_span),
+                            "verified execution capture is shorter than the declared observation window")
             else:
                 require(full_window and kind == "event_anchor",
                         "requirement window needs trace-mapped evidence")
@@ -662,7 +672,8 @@ def validate_submission(row, manifest, *, case=None, evidence_index=None, gate_f
     status = _channel_status(row, case, evidence_index)
     blocked, broken_channels, unscoped_issue = _issue_status(row, status)
     normalized = deepcopy(row)
-    normalized["dimensions"] = _scope_states(case, deepcopy(dimensions), gate_facts or case.get("gates", {}))
+    gates = case.get("gates", {}) if gate_facts is None else gate_facts
+    normalized["dimensions"] = _scope_states(case, deepcopy(dimensions), gates)
     for dim, item in normalized["dimensions"].items():
         _validate_dimension(item, case, dim, status, blocked, broken_channels, unscoped_issue, evidence_index)
     return normalized
@@ -798,7 +809,9 @@ def organize_reviews(labels, manifest, *, evidence_index_for, arbitrations=(), g
     results, disagreements = {}, []
     for case in manifest["cases"]:
         blind = case["blind_id"]
-        allowed = case["task_card"]["allowed_correspondence_ids"]
+        task = case["task_card"]
+        allowed = task["allowed_correspondence_ids"]
+        assigned_mapping = case.get("assigned_correspondence_id", task.get("review_correspondence_id", allowed[0]))
         dimensions = {}
         for dim in DIMENSIONS:
             for correspondence in ([None] if dim == "P" else allowed):
@@ -811,7 +824,7 @@ def organize_reviews(labels, manifest, *, evidence_index_for, arbitrations=(), g
                 if not requirement_map(case, dim):
                     merged = {"assessment_state": "skipped", "verdict": None, "disputed": False,
                               "skip_reason": "not_applicable"}
-                elif dim not in assigned_dimensions(case):
+                elif dim not in assigned_dimensions(case) or dim != "P" and correspondence != assigned_mapping:
                     merged = {"assessment_state": "skipped", "verdict": None, "disputed": False,
                               "skip_reason": "not_assigned"}
                 else:

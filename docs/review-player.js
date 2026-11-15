@@ -149,7 +149,7 @@ export class ReviewPlayer {
         usesSource ? this.verifiedBlob("source_timestamps").then(async (file) => parseJSONL(await file.text())) : [],
       ]);
       if (generation !== this.generation) return;
-      this.frames = validateFrameMaps(execution, source, this.row);
+      this.frames = validateFrameMaps(execution, source, this.row, this.provider.manifest.usability_trial === true);
       this.availability.timing = this.frames.linked ? "valid" : "unavailable";
     } catch {
       if (generation === this.generation) this.availability.timing = "unavailable";
@@ -303,6 +303,10 @@ export class ReviewPlayer {
     if (!this.frames || this.videos.execution.seeking || !Number.isFinite(this.decoded.execution)) return null;
     return this.frames.execution.find((point) => Math.abs(point.execution_video_pts_s - this.decoded.execution) < .002) ?? null;
   }
+  coversWindow(window) {
+    const observed = this.frames?.clockWindow;
+    return Boolean(observed && observed[0] <= window[0] + .05 && observed[1] >= window[1] - .05);
+  }
   step(direction) {
     if (!this.frames || this.availability.execution !== "valid") return;
     this.pause();
@@ -356,7 +360,9 @@ export class ReviewPlayer {
     text(this.nodes["timeline-status"], point
       ? "回放帧 " + point.execution_frame_id + " · " +
         (point.source_frame_id == null ? "源帧对应不可用" : "对应源帧 " + point.source_frame_id) +
-        " · 物理 " + time(point.trace_time_s) + (point.repeat_state ? "（同一物理状态的尾帧）" : "")
+        " · 物理 " + time(point.trace_time_s) + (point.repeat_state ? "（同一物理状态的尾帧）" : "") +
+        (!this.provider.manifest.usability_trial &&
+          !this.coversWindow(this.row.timeline.score_window_s) ? " · 回放覆盖评分窗口的一部分" : "")
       : timing === "unavailable" ? "时间对应不可用。两段视频仍可各自查看。"
       : timing === "valid" ? "时间索引已核验，等待已解码帧。" : "正在核对时间索引。");
     this.renderPhysical();

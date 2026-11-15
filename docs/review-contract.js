@@ -113,7 +113,7 @@ export function parseJSONL(text) {
   return text.trim().split(/\r?\n/).filter((line) => line.trim()).map((line) => JSON.parse(line));
 }
 
-export function validateFrameMaps(execution, source, row) {
+export function validateFrameMaps(execution, source, row, frozenTrial = false) {
   require(execution.length, "回放逐帧索引为空。");
   const timeline = row.timeline;
   require(source.length || timeline.source_mapping_available === false, "源视频逐帧索引为空。");
@@ -150,11 +150,12 @@ export function validateFrameMaps(execution, source, row) {
     "回放帧索引有无效状态、对应帧或未声明的重复。");
     prev = point;
   }
-  require(execution[0].trace_time_s <= start + dt + .000002 && near(execution.at(-1).trace_time_s, end, dt + .000002),
-    "回放帧索引未覆盖评分时间。");
   const linked = source.length > 0 && execution.every((point) => point.source_frame_id != null ||
     point.execution_video_pts_s < timeline.execution_video_offset_s + timeline.preparation_s + .000002);
-  return { execution, source, linked };
+  const clockWindow = [execution[0].trace_time_s, execution.at(-1).trace_time_s];
+  if (frozenTrial) require(clockWindow[0] <= start + dt + .000002 && near(clockWindow[1], end, dt + .000002),
+    "回放帧索引未覆盖评分时间。");
+  return { execution, source, linked, clockWindow };
 }
 
 export function validatePhysical(rows, timing, row) {
