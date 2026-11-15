@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "batch_id": "ego-wm-e0-six-case",
+  "title": "Ego WM · 人手到机器人",
+  "cases": [
+    {
+      "blind_id": "0c6d68e999e3a51f",
+      "task": {
+        "title": "提起并保持 · 纸盒",
+        "description": "用右手把纸盒提离原桌面，并保持到动作结束。",
+        "rubric": {
+          "functional": "观察纸盒何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
+          "contact": "核对抓握的手、手指和纸盒上的接触部位。看不清的要素可填「无法判断」。",
+          "motion": "比较人手靠近纸盒的过程和纸盒的运动路径。"
+        }
+      },
+      "media": {
+        "source": "media/reference-01.mp4",
+        "execution": "media/0c6d68e999e3a51f.execution.mp4",
+        "timestamps": "media/0c6d68e999e3a51f.timestamps.jsonl",
+        "physical_evidence": "media/0c6d68e999e3a51f.physical_evidence.jsonl"
+      },
+      "timeline": {
+        "source_duration_s": 2.466667,
+        "execution_duration_s": 2.466667
+      }
+    },
+    {
+      "blind_id": "5d41efc260b0111a",
+      "task": {
+        "title": "提起并保持 · 纸盒",
+        "description": "用右手把纸盒提离原桌面，并保持到动作结束。",
+        "rubric": {
+          "functional": "观察纸盒何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
+          "contact": "核对抓握的手、手指和纸盒上的接触部位。看不清的要素可填「无法判断」。",
+          "motion": "比较人手靠近纸盒的过程和纸盒的运动路径。"
+        }
+      },
+      "media": {
+        "source": "media/reference-01.mp4",
+        "execution": "media/5d41efc260b0111a.execution.mp4",
+        "timestamps": "media/5d41efc260b0111a.timestamps.jsonl",
+        "physical_evidence": "media/5d41efc260b0111a.physical_evidence.jsonl"
+      },
+      "timeline": {
+        "source_duration_s": 2.466667,
+        "execution_duration_s": 2.466667
+      }
+    },
+    {
+      "blind_id": "718aec97574d52e6",
+      "task": {
+        "title": "搬运并放下 · 杯子",
+        "description": "左手握住杯柄，将起始时已握住的杯子移到桌面，放稳后撤手。右手操作的是另一件物体。",
+        "rubric": {
+          "functional": "依次观察搬运、在目标桌面上释放、放下后保持稳定。",
+          "contact": "核对抓握的手和接触部位，尤其是是否握住杯柄。",
+          "motion": "比较杯子的移动路径、方向，以及放下后的撤手动作。"
+        }
+      },
+      "media": {
+        "source": "media/reference-02.mp4",
+        "execution": "media/718aec97574d52e6.execution.mp4",
+        "timestamps": "media/718aec97574d52e6.timestamps.jsonl",
+        "physical_evidence": "media/718aec97574d52e6.physical_evidence.jsonl"
+      },
+      "timeline": {
+        "source_duration_s": 5.0,
+        "execution_duration_s": 5.033333
+      }
+    },
+    {
+      "blind_id": "a64137cb30be6ced",
+      "task": {
+        "title": "搬运并放下 · 杯子",
+        "description": "左手握住杯柄，将起始时已握住的杯子移到桌面，放稳后撤手。右手操作的是另一件物体。",
+        "rubric": {
+          "functional": "依次观察搬运、在目标桌面上释放、放下后保持稳定。",
+          "contact": "核对抓握的手和接触部位，尤其是是否握住杯柄。",
+          "motion": "比较杯子的移动路径、方向，以及放下后的撤手动作。"
+        }
+      },
+      "media": {
+        "source": "media/reference-02.mp4",
+        "execution": "media/a64137cb30be6ced.execution.mp4",
+        "timestamps": "media/a64137cb30be6ced.timestamps.jsonl",
+        "physical_evidence": "media/a64137cb30be6ced.physical_evidence.jsonl"
+      },
+      "timeline": {
+        "source_duration_s": 5.0,
+        "execution_duration_s": 5.033333
+      }
+    },
+    {
+      "blind_id": "e0fa7c9723075fb6",
+      "task": {
+        "title": "提起并保持 · 香蕉",
+        "description": "右手靠近香蕉，将它提离桌面，并保持到动作结束。",
+        "rubric": {
+          "functional": "观察香蕉何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
+          "contact": "核对抓握的手、手指和香蕉上的接触部位。看不清的要素可填「无法判断」。",
+          "motion": "比较人手靠近香蕉的过程和香蕉的运动路径。"
+        }
+      },
+      "media": {
+        "source": "media/reference-03.mp4",
+        "execution": "media/e0fa7c9723075fb6.execution.mp4",
+        "timestamps": "media/e0fa7c9723075fb6.timestamps.jsonl",
+        "physical_evidence": "media/e0fa7c9723075fb6.physical_evidence.jsonl"
+      },
+      "timeline": {
+        "source_duration_s": 2.4,
+        "execution_duration_s": 2.4
+      }
+    },
+    {
+      "blind_id": "f13ed1bcaa569c14",
+      "task": {
+        "title": "提起并保持 · 香蕉",
+        "description": "右手靠近香蕉，将它提离桌面，并保持到动作结束。",
+        "rubric": {
+          "functional": "观察香蕉何时离开桌面，以及结束时是否仍由手托住、离开桌面。",
+          "contact": "核对抓握的手、手指和香蕉上的接触部位。看不清的要素可填「无法判断」。",
+          "motion": "比较人手靠近香蕉的过程和香蕉的运动路径。"
+        }
+      },
+      "media": {
+        "source": "media/reference-03.mp4",
+        "execution": "media/f13ed1bcaa569c14.execution.mp4",
+        "timestamps": "media/f13ed1bcaa569c14.timestamps.jsonl",
+        "physical_evidence": "media/f13ed1bcaa569c14.physical_evidence.jsonl"
+      },
+      "timeline": {
+        "source_duration_s": 2.4,
+        "execution_duration_s": 2.4
+      }
+    }
+  ]
+}

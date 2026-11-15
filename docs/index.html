@@ -27,12 +27,6 @@
         <h2 id="batch-title">正在载入</h2>
         <div class="progress-line"><span id="progress-text">0 / 0 已完成</span><span id="progress-percent"></span></div>
         <progress id="progress" value="0" max="1" aria-label="审阅完成度"></progress>
-        <div class="import-actions">
-          <button class="secondary" id="import-zip" type="button">导入审阅包</button>
-          <button class="link-button" id="import-folder" type="button">选择文件夹</button>
-        </div>
-        <input type="file" id="zip-file" accept=".zip,application/zip" hidden>
-        <input type="file" id="folder-files" webkitdirectory multiple hidden>
       </div>
       <div class="queue">
         <div class="queue-header"><h3>任务列表</h3><label class="filter"><input id="filter" type="checkbox"> 只看未完成</label></div>
@@ -40,8 +34,8 @@
       </div>
       <div class="profile">
         <label for="reviewer">审阅人编号</label>
-        <input id="reviewer" type="text" placeholder="输入分配给你的编号" autocomplete="off" maxlength="60">
-        <p>草稿保存在本浏览器。</p>
+        <input id="reviewer" type="text" placeholder="例如你的 GitHub 用户名" autocomplete="off" maxlength="60">
+        <p>用同一编号续审。草稿自动保存在本浏览器。</p>
       </div>
     </aside>
     <main id="workspace" class="main" tabindex="-1" aria-busy="true">
@@ -99,13 +93,23 @@
   <dialog id="help">
     <div class="dialog-head"><h2>审阅说明</h2><form method="dialog"><button class="icon-button" type="submit" aria-label="关闭说明">×</button></form></div>
     <ol>
-      <li>导入组内发给你的 ZIP，或选择解压后的目录。输入分配给你的审阅人编号。</li>
+      <li>首页已载入六条开发样例。输入你的审阅编号，例如 GitHub 用户名。</li>
       <li>对照人类示范和机器人回放，分别判断任务完成、接触方式、动作过程。点击「记时间」引用当前回放时间。</li>
       <li>写一句依据。能判断时附上对应的回放时间，无法判断时写明缺什么证据。完成后导出文件交回组织者。</li>
     </ol>
-    <p>导入的视频和草稿在本设备处理。草稿按审阅编号和批次保存。刷新后重新导入同一批次可继续。</p>
+    <p>首页批次刷新后可从上次停留的位置继续。</p>
     <p><kbd>空格</kbd> 播放/暂停，<kbd>J</kbd> <kbd>L</kbd> 前后跳 1 秒。填写表单时快捷键暂停。</p>
-    <button id="open-demo" class="secondary" type="button">打开练习批次</button>
+    <div class="import-actions">
+      <button id="open-default" class="secondary" type="button">打开开发盲审批次</button>
+      <button id="open-demo" class="secondary" type="button">打开练习批次</button>
+    </div>
+    <div class="import-actions">
+      <button class="secondary" id="import-zip" type="button">导入其他审阅包</button>
+      <button class="link-button" id="import-folder" type="button">选择文件夹</button>
+    </div>
+    <input type="file" id="zip-file" accept=".zip,application/zip" hidden>
+    <input type="file" id="folder-files" webkitdirectory multiple hidden>
+    <p><a href="https://github.com/UniMotionRec/ego-wm-eval-review/blob/main/docs/review/ATTRIBUTION.md" target="_blank" rel="noopener">示范视频来源与许可证</a></p>
   </dialog>
   <noscript><p class="notice">请在浏览器启用 JavaScript 后打开工作台。</p></noscript>
 </body>

@@ -285,7 +285,10 @@ function loadDrafts() {
 async function setProvider(provider) {
   state.provider = provider;
   loadDrafts();
-  text(nodes["batch-kind"], provider.isLocal ? "组内审阅批次" : "练习批次");
+  const kinds = { review: "开发盲审批次", demo: "练习批次", local: "导入的审阅批次" };
+  text(nodes["batch-kind"], kinds[provider.kind]);
+  nodes["open-default"].hidden = provider.kind === "review";
+  nodes["open-demo"].hidden = provider.kind === "demo";
   text(nodes["batch-title"], manifest().title || manifest().batch_id);
   let index = Number(readStorage(`${draftKey()}/index`, 0));
   if (!Number.isInteger(index) || index < 0 || index >= cases().length) index = 0;
@@ -293,6 +296,7 @@ async function setProvider(provider) {
 }
 async function importFile(read, file) {
   if (!file) return;
+  nodes.help.close();
   const request = ++state.request;
   try {
     notice("正在读取本地审阅包。");
@@ -304,13 +308,21 @@ async function importFile(read, file) {
     if (request === state.request) notice(error.message || "审阅包载入失败。", "error");
   }
 }
-async function loadDemo() {
+async function loadBuiltIn(kind) {
   const request = ++state.request;
+  notice("正在载入审阅批次。");
+  nodes.workspace.setAttribute("aria-busy", "true");
   try {
-    const provider = await builtIn();
-    if (request === state.request) await setProvider(provider);
+    const provider = await builtIn(kind);
+    if (request !== state.request) return;
+    notice("");
+    await setProvider(provider);
+  } catch (error) {
+    if (request !== state.request) return;
+    notice(error.message || "批次暂时无法载入。请刷新页面重试。", "error");
+    refreshQueue();
+    nodes.workspace.setAttribute("aria-busy", "false");
   }
-  catch (error) { notice(error.message, "error"); refreshQueue(); nodes.workspace.setAttribute("aria-busy", "false"); }
 }
 
 function startOffset(side) { return asSeconds(current()?.timeline?.[`${side}_video_offset_s`]); }
@@ -636,7 +648,8 @@ nodes["folder-files"].addEventListener("change", (event) => {
   event.target.value = "";
 });
 nodes["help-toggle"].addEventListener("click", () => nodes.help.showModal());
-nodes["open-demo"].addEventListener("click", () => { nodes.help.close(); notice(""); loadDemo(); });
+nodes["open-default"].addEventListener("click", () => { nodes.help.close(); loadBuiltIn("review"); });
+nodes["open-demo"].addEventListener("click", () => { nodes.help.close(); loadBuiltIn("demo"); });
 document.addEventListener("keydown", (event) => {
   if (nodes.help.open || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "VIDEO"].includes(event.target.tagName) ||
     event.ctrlKey || event.metaKey || event.altKey || !current()) return;
@@ -645,4 +658,4 @@ document.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "l") seekTo(getExecutionTime() + 1);
 });
 if (!storageAvailable) notice("此浏览器禁用了本地草稿。请在关闭页面前导出。");
-loadDemo();
+loadBuiltIn(new URLSearchParams(location.search).get("demo") === "1" ? "demo" : "review");

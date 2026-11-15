@@ -3,5 +3,7 @@ __pycache__/
 .venv/
 *.zip
 *.jsonl
+!docs/review/media/*.timestamps.jsonl
+!docs/review/media/*.physical_evidence.jsonl
 review_private/
 pipeline_outputs/

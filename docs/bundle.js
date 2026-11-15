@@ -48,7 +48,7 @@ async function localProvider(entries, read) {
   const [key, prefix] = findManifest(entries.keys());
   const data = JSON.parse(await (await read(key)).text());
   const manifest = validateManifest(data, (path) => entries.has(prefix + path));
-  return { manifest, fetchBlob: (path) => read(prefix + path), isLocal: true };
+  return { manifest, fetchBlob: (path) => read(prefix + path), kind: "local" };
 }
 
 export function fromFolder(files) {
@@ -117,16 +117,16 @@ export async function fromZip(file) {
   return localProvider(entries, read);
 }
 
-export async function builtIn() {
-  const base = new URL("./demo/", import.meta.url);
+export async function builtIn(kind = "review") {
+  const base = new URL(kind === "demo" ? "./demo/" : "./review/", import.meta.url);
   const response = await fetch(new URL("review-manifest.json", base));
-  if (!response.ok) throw new Error("练习批次暂不可用。你仍可导入自己的审阅包。");
+  if (!response.ok) throw new Error("批次暂时无法载入。请刷新页面重试。");
   const manifest = validateManifest(await response.json());
   const cache = new Map();
   async function fetchBlob(path) {
     if (!cache.has(path)) {
       cache.set(path, fetch(new URL(path, base)).then((response) => {
-        if (!response.ok) throw new Error("练习素材暂不可用。");
+        if (!response.ok) throw new Error("素材暂时无法载入。请刷新页面重试。");
         return response.blob();
       }).catch((error) => {
         cache.delete(path);
@@ -135,5 +135,5 @@ export async function builtIn() {
     }
     return cache.get(path);
   }
-  return { manifest, fetchBlob, isLocal: false };
+  return { manifest, fetchBlob, kind };
 }
