@@ -1,4 +1,4 @@
-import { blobDigest, parseJSONL, validateFrameMaps, validatePhysical } from "./review-contract.js";
+import { blobDigest, parseJSONL, validateFrameMaps, validatePhysical } from "./review-contract.js?v=20261115-3";
 
 const clamp = (value, limit) => Math.min(Math.max(value, 0), limit);
 const text = (node, value) => { node.textContent = value; };
@@ -155,7 +155,7 @@ export class ReviewPlayer {
       ]);
       if (generation !== this.generation) return;
       this.frames = validateFrameMaps(execution, source, this.row, this.provider.manifest.usability_trial === true);
-      this.availability.timing = this.frames.linked ? "valid" : "unavailable";
+      this.availability.timing = this.frames.sourceSupport !== null ? "valid" : "unavailable";
     } catch {
       if (generation === this.generation) this.availability.timing = "unavailable";
     }
@@ -268,7 +268,7 @@ export class ReviewPlayer {
       this.availability[side] !== "unavailable";
   }
   canSync() {
-    return this.availability.timing === "valid" && this.nodes.sync.checked;
+    return Boolean(this.frames?.linked) && this.nodes.sync.checked;
   }
   rates() {
     const rate = Number(this.nodes.rate.value);
@@ -320,6 +320,10 @@ export class ReviewPlayer {
     const observed = this.frames?.clockWindow;
     return Boolean(observed && observed[0] <= window[0] + .05 && observed[1] >= window[1] - .05);
   }
+  coversSource(window) {
+    return Boolean(this.frames?.sourceSupport?.some(([start, end]) =>
+      start <= window[0] + .000002 && end >= window[1] - .000002));
+  }
   step(direction) {
     if (!this.frames || this.availability.execution !== "valid") return;
     this.pause();
@@ -367,7 +371,7 @@ export class ReviewPlayer {
     text(this.nodes["execution-time"], time(this.videos.execution.currentTime));
     this.nodes.play.disabled = !Object.keys(this.videos).some((side) => this.canPlay(side));
     text(this.nodes.play, Object.values(this.videos).some((video) => !video.paused) ? "暂停" : "播放");
-    this.nodes.sync.disabled = timing !== "valid";
+    this.nodes.sync.disabled = !this.frames?.linked;
     this.nodes["frame-prev"].disabled = this.nodes["frame-next"].disabled =
       !videoReady || !this.frames || !this.videos.execution.requestVideoFrameCallback;
     this.nodes["retry-material"].hidden = this.provider.kind === "local" || ![
@@ -376,12 +380,14 @@ export class ReviewPlayer {
     this.nodes["timeline-status"].dataset.status = timing;
     text(this.nodes["timeline-status"], point
       ? "回放帧 " + point.execution_frame_id + " · " +
-        (point.source_frame_id == null ? "源帧对应不可用" : "对应源帧 " + point.source_frame_id) +
+        (point.source_mapping_status === "presentation_tail" ? "源视频末帧显示区间，精确时刻未知" :
+          point.source_frame_id == null ? "源帧对应不可用" : "对应源帧 " + point.source_frame_id) +
         " · 物理 " + time(point.trace_time_s) + (point.repeat_state ? "（同一物理状态的尾帧）" : "") +
         (!this.provider.manifest.usability_trial &&
           !this.coversWindow(this.row.timeline.score_window_s) ? " · 回放覆盖评分窗口的一部分" : "")
       : timing === "unavailable" ? "时间对应不可用。两段视频仍可各自查看。"
-      : timing === "valid" ? "时间索引已核验，等待已解码帧。" : "正在核对时间索引。");
+      : timing === "valid" ? (this.frames.linked ? "时间索引已核验，等待已解码帧。" :
+        "逐帧索引已核验，部分时间无法对应源帧。") : "正在核对时间索引。");
     this.renderPhysical();
   }
   physicalReady(window) {

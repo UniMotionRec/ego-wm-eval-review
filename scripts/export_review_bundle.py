@@ -15,8 +15,10 @@ from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
 if __package__:
     from .review_contract import bind_case, hash_file, validate_manifest
+    from .source_clock import SourceClock, coverage_policy, validate_source_rows, validate_unpaired
 else:
     from review_contract import bind_case, hash_file, validate_manifest
+    from source_clock import SourceClock, coverage_policy, validate_source_rows, validate_unpaired
 
 
 _TASK_TITLES = {
@@ -176,7 +178,8 @@ def _check_video_map(stage, case, role, mapping_key, prefix):
     if mapping_key not in case["media"]:
         return
     previous = -1
-    for row in _jsonl(stage / case["media"][mapping_key]):
+    rows = list(_jsonl(stage / case["media"][mapping_key]))
+    for row in rows:
         index = row[f"{prefix}_frame_id"]
         if type(index) is not int or not previous < index < len(points):
             raise ValueError(f"Invalid {role} frame order")
@@ -185,6 +188,10 @@ def _check_video_map(stage, case, role, mapping_key, prefix):
         previous = index
     if previous < 0:
         raise ValueError(f"Empty {role} frame map")
+    if role == "source" and "timestamps" in case["media"] and SourceClock(rows, timeline).presentation_tail is not None:
+        declared_end = timeline["source_video_offset_s"] + timeline["source_duration_s"]
+        if previous + 1 < len(points) and float(points[previous + 1]) < declared_end - 2e-6:
+            raise ValueError("Source presentation tail does not follow the last decoded frame of the declared clip")
 
 
 
@@ -201,15 +208,16 @@ def _check_v2_evidence(stage, case):
     if (not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0
             or not hi - tolerance <= native_end <= hi + dt + tolerance):
         raise ValueError("Invalid native trace bounds")
-    source_rows = {}
+    coverage_policy(timeline, case.get("task_card"))
+    if "source_trace_support_s" in timeline and not {"source_timestamps", "timestamps"} <= media.keys():
+        raise ValueError("Declared source support requires both structured frame clocks")
+    source_clock = None
     if "source_timestamps" in media:
-        previous = None
-        for line in _jsonl(stage / media["source_timestamps"]):
-            time = line["source_time_s"]
-            if not isinstance(time, (int, float)) or not math.isfinite(time) or time < 0 or (previous is not None and time <= previous):
-                raise ValueError("Invalid acquisition clock in source map")
-            source_rows[line["source_frame_id"]] = line
-            previous = time
+        source_rows = list(_jsonl(stage / media["source_timestamps"]))
+        if "timestamps" in media:
+            source_clock = SourceClock(source_rows, timeline)
+        else:
+            validate_source_rows(source_rows, timeline)
     trace_rows = {}
     if "physical_evidence" in media:
         first = previous = None
@@ -242,14 +250,18 @@ def _check_v2_evidence(stage, case):
             record = trace_rows.get(transition)
             if record is None or not near(trace_time, record["state_time_s"]) or line.get("action_interval_s") != record["solver_interval_s"]:
                 raise ValueError("Renderer frame is not from the named physical transition")
-        if source_rows and line.get("source_frame_id") is not None:
-            source = source_rows.get(line["source_frame_id"])
-            if source is None or any(not near(source[field], line.get(field)) for field in ("source_video_pts_s", "source_time_s")):
-                raise ValueError("Source acquisition map disagrees with the execution frame")
+        if source_clock is not None:
+            source_clock.validate_pair(line)
+        else:
+            validate_unpaired(line)
         first = line if first is None else first
         previous = line
     if first is None or first["trace_time_s"] > lo + dt + tolerance or not near(previous["trace_time_s"], hi, dt + tolerance):
         raise ValueError("Delivered frame map does not cover the declared score window")
+    if source_clock is not None and (source_clock.partial or source_clock.presentation_tail is not None
+                                     or source_clock.declared_support is not None):
+        return source_clock.trace_support()
+    return None
 
 def _enrich_v2(case, packet, stage):
     timeline = dict(packet["timeline"])
@@ -266,7 +278,9 @@ def _enrich_v2(case, packet, stage):
     case["media_hashes"] = {name: hash_file(stage / path) for name, path in case["media"].items()}
     for role, key in (("source", "source_timestamps"), ("execution", "timestamps")):
         _check_video_map(stage, case, role, key, role)
-    _check_v2_evidence(stage, case)
+    support = _check_v2_evidence(stage, case)
+    if support is not None:
+        timeline["source_trace_support_s"] = support
     if "execution_closeup" in case["media"]:
         if clip_frame_times(stage / case["media"]["execution_closeup"]) != clip_frame_times(stage / case["media"]["execution"]):
             raise ValueError("Execution views must share exact presentation times and duration")

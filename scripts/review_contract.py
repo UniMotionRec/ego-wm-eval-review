@@ -9,6 +9,11 @@ import math
 from pathlib import Path, PurePosixPath
 import re
 
+if __package__:
+    from .source_clock import SourceClock, SourceClockError, coverage_policy, validate_source_rows, validate_unpaired
+else:
+    from source_clock import SourceClock, SourceClockError, coverage_policy, validate_source_rows, validate_unpaired
+
 
 SCHEMA_VERSION = 2
 DIMENSIONS = ("P", "C", "M")
@@ -200,6 +205,10 @@ def _validate_case(case):
     scopes = task.get("dimension_scopes", {})
     require(isinstance(scopes, dict) and set(scopes) <= set(DIMENSIONS) and all(map(_identifier, scopes.values())),
             "invalid dimension scope")
+    try:
+        coverage_policy(timeline, task)
+    except SourceClockError as exc:
+        raise ReviewError(str(exc)) from exc
     groups = task.get("requirements")
     require(isinstance(groups, dict) and set(groups) <= set(DIMENSIONS), "invalid task requirements")
     if task.get("setup_issue") is not None:
@@ -339,34 +348,41 @@ def build_evidence_index(case, read_asset):
     def load(channel, callback):
         try:
             return callback()
-        except (ReviewError, OSError, KeyError, UnicodeError, json.JSONDecodeError) as error:
+        except (ReviewError, SourceClockError, OSError, KeyError, UnicodeError, json.JSONDecodeError) as error:
             errors[channel] = str(error)
             return {}
 
-    source = load("source_timestamps", lambda: _frame_rows(case, "source_timestamps", "source", read_asset))
+    def source_map():
+        frames = _frame_rows(case, "source_timestamps", "source", read_asset)
+        validate_source_rows(frames.values(), case["timeline"])
+        return frames
+
+    source = load("source_timestamps", source_map)
     contacts = load("physics", lambda: _raw_contacts(case, read_asset))
+    source_support = []
 
     def execution_map():
         frames = _frame_rows(case, "timestamps", "execution", read_asset)
+        coverage_policy(case["timeline"], case["task_card"])
+        if "source_timestamps" in errors:
+            raise ReviewError("source frame mapping failed verification")
+        clock = SourceClock(list(source.values()), case["timeline"]) if frames and "source_timestamps" in case["media"] else None
         for row in frames.values():
-            if "source_timestamps" in errors:
-                raise ReviewError("source frame mapping failed verification")
-            frame = row.get("source_frame_id")
-            if frame is not None:
-                require(frame in source and _number(row.get("source_video_pts_s"))
-                        and abs(row["source_video_pts_s"] - source[frame]["source_video_pts_s"]) <= EPS,
-                        "execution/source frame identity mismatch")
-                if "source_time_s" in row:
-                    require(_number(row["source_time_s"]) and abs(row["source_time_s"] - source[frame]["source_time_s"]) <= EPS,
-                            "mapped source clock does not match native frame")
+            if clock is None:
+                validate_unpaired(row)
+            else:
+                clock.validate_pair(row)
             transition = row.get("transition_index")
             if transition in contacts:
                 require(all(abs(a - b) <= EPS for a, b in zip(row["action_interval_s"], contacts[transition]["solver_interval_s"])),
                         "mapped transition interval disagrees with raw solver evidence")
+        if clock is not None:
+            source_support.extend(clock.trace_support())
         return frames
 
     execution = load("timing", execution_map)
-    return {"source": source, "execution": execution, "physics": contacts, "errors": errors}
+    return {"source": source, "execution": execution, "physics": contacts, "errors": errors,
+            "source_support": source_support}
 
 
 def _issue_status(row, status):
@@ -539,6 +555,9 @@ def _validate_evidence(evidence, required, case, status, index, verdict, decisiv
                 if kind in {"reviewed_scope", "observation_window"} and {"execution", "timing"} & channels:
                     require(_execution_covers(index, required_span),
                             "execution capture does not cover the required observation window")
+                if {"source", "timing"} <= channels:
+                    require(_windows_cover(index.get("source_support", ()), span),
+                            "Source timing does not support the requested trace interval")
             elif kind in {"reviewed_scope", "observation_window"}:
                 require(full_window and _contains(span, available), "unmapped scope needs the complete declared visual clip")
                 if basis == "execution_media" and index and index["execution"]:
@@ -617,7 +636,12 @@ def _validate_dimension(item, case, dim, status, whole_case_block, broken_channe
     if state != "evaluated":
         require(fact is None and not decisive and not covered and not raw_evidence, "unassessed dimension carries a verdict or decisive evidence")
         if state == "blocked":
-            require(whole_case_block or setup_block or unscoped_issue or bool(hidden),
+            scoped_gap = any(all(
+                any(status.get(channel) != "valid" for channel in alt)
+                or {"source", "timing"} <= alt and not _windows_cover(
+                    (index or {}).get("source_support", ()), req.get("window_s") or case["timeline"]["score_window_s"])
+                for alt in _options(req)) for req in required.values())
+            require(whole_case_block or setup_block or unscoped_issue or bool(hidden) or scoped_gap,
                     "blocked requires an affected requirement or a repair report")
         if state == "stale":
             raise ReviewError("only the organizer can mark a changed submission as stale")

@@ -16,6 +16,22 @@ const near = (a, b, epsilon = 0.000002) => Number.isFinite(a) && Number.isFinite
 const distinct = (rows) => new Set(rows).size === rows.length;
 const require = (condition, message) => { if (!condition) throw new Error(message); };
 
+function hasPartialSource(row) {
+  const coverage = row.timeline.source_coverage ?? "complete";
+  require(["complete", "partial"].includes(coverage), "源帧覆盖范围声明无效。");
+  if (coverage === "partial") {
+    const card = row.task_card;
+    const scopes = Object.entries(card?.requirements ?? {});
+    const sourceScopes = scopes.length ? scopes.filter(([dimension, rules]) =>
+      ["C", "M"].includes(dimension) || rules.some((rule) =>
+        rule.evidence_options.every((option) => option.includes("source"))))
+      .map(([dimension]) => card.dimension_scopes?.[dimension] ?? card.scope_id)
+      : [card?.scope_id, ...Object.values(card?.dimension_scopes ?? {})];
+    require(card?.scope_id && !sourceScopes.includes("full_episode"), "局部源帧证据需要较窄的审阅范围。");
+  }
+  return coverage === "partial";
+}
+
 export function canonical(value) {
   if (value === null || typeof value === "string" || typeof value === "boolean" || Number.isFinite(value))
     return JSON.stringify(value);
@@ -52,6 +68,7 @@ export function validateV2Shape(manifest, row) {
   require(timeline.time_policy !== "identity" || (timeline.source_video_offset_s === 0 &&
     timeline.execution_video_offset_s === 0 && timeline.preparation_s === 0 && timeline.uniform_scale === 1),
   "时间映射与声明的同速、同起点规则冲突。");
+  hasPartialSource(row);
   const hashes = row.media_hashes;
   require(hashes && Object.keys(row.media).every((key) => isDigest(hashes[key])) &&
     Object.keys(hashes).every((key) => Boolean(row.media[key])) &&
@@ -116,6 +133,7 @@ export function parseJSONL(text) {
 export function validateFrameMaps(execution, source, row, frozenTrial = false) {
   require(execution.length, "回放逐帧索引为空。");
   const timeline = row.timeline;
+  const partial = hasPartialSource(row);
   require(source.length || timeline.source_mapping_available === false, "源视频逐帧索引为空。");
   const sourceByFrame = new Map();
   let prev;
@@ -131,9 +149,17 @@ export function validateFrameMaps(execution, source, row, frozenTrial = false) {
   prev = null;
   const [start, end] = timeline.score_window_s;
   const dt = timeline.physics_dt_s ?? .005;
+  const declaredSupport = timeline.source_trace_support_s;
+  if (declaredSupport !== undefined) {
+    require(Array.isArray(declaredSupport) && declaredSupport.every((span, i) => isWindow(span) &&
+      span[0] >= Math.max(start, timeline.preparation_s) - .000002 && span[1] <= end + .000002 &&
+      (!i || span[0] > declaredSupport[i - 1][1])), "源帧支持窗口无效。");
+  }
   for (const point of execution) {
     const src = sourceByFrame.get(point.source_frame_id);
     const repeated = Boolean(prev && point.state_index === prev.state_index);
+    const outsideScore = point.trace_time_s < Math.max(timeline.preparation_s, start) - .000002 ||
+      point.trace_time_s > end + .000002;
     require(isIndex(point.execution_frame_id) && isTime(point.execution_video_pts_s) &&
       isTime(point.trace_time_s) && isIndex(point.state_index) &&
       (point.state_index === 0 ? point.transition_index == null : point.transition_index === point.state_index - 1) &&
@@ -145,17 +171,27 @@ export function validateFrameMaps(execution, source, row, frozenTrial = false) {
       point.trace_time_s <= (timeline.native_trace_end_s ?? end + dt) + .000002 &&
       (src ? near(point.source_video_pts_s, src.source_video_pts_s) && near(point.source_time_s, src.source_time_s) :
         point.source_frame_id == null && point.source_video_pts_s == null && point.source_time_s == null &&
-        (timeline.source_mapping_available === false ||
-          point.execution_video_pts_s < timeline.execution_video_offset_s + timeline.preparation_s + .000002)),
+        (timeline.source_mapping_available === false || outsideScore ||
+          point.source_mapping_status === "presentation_tail" ||
+          partial && point.source_mapping_status === "unsupported")),
     "回放帧索引有无效状态、对应帧或未声明的重复。");
     prev = point;
   }
-  const linked = source.length > 0 && execution.every((point) => point.source_frame_id != null ||
-    point.execution_video_pts_s < timeline.execution_video_offset_s + timeline.preparation_s + .000002);
+  const allPaired = source.length > 0 && execution.every((point) => point.source_frame_id != null ||
+    point.trace_time_s < Math.max(timeline.preparation_s, start) - .000002 ||
+    point.trace_time_s > end + .000002);
+  const linked = allPaired && (declaredSupport === undefined || declaredSupport.some(([a,b]) =>
+    a <= Math.max(timeline.preparation_s, start) + .000002 && b >= end - .000002));
+  const sourceSupport = declaredSupport ?? (linked ? [[Math.max(start, timeline.preparation_s), end]] : null);
+  if (declaredSupport !== undefined) {
+    require(execution.every((point) =>
+      (point.source_frame_id != null) === declaredSupport.some(([a, b]) =>
+        a - .000002 <= point.trace_time_s && point.trace_time_s <= b + .000002)), "逐帧索引与源支持窗口不符。");
+  }
   const clockWindow = [execution[0].trace_time_s, execution.at(-1).trace_time_s];
   if (frozenTrial) require(clockWindow[0] <= start + dt + .000002 && near(clockWindow[1], end, dt + .000002),
     "回放帧索引未覆盖评分时间。");
-  return { execution, source, linked, clockWindow };
+  return { execution, source, linked, clockWindow, sourceSupport };
 }
 
 export function validatePhysical(rows, timing, row) {

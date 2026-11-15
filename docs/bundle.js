@@ -1,4 +1,4 @@
-import { checkCaseIdentity, dimensions as v2Dimensions, validateV2Shape } from "./review-contract.js";
+import { checkCaseIdentity, dimensions as v2Dimensions, validateV2Shape } from "./review-contract.js?v=20261115-3";
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const types = {

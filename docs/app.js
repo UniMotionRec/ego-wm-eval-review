@@ -1,7 +1,7 @@
-import { builtIn, fromFolder, fromZip } from "./bundle.js?v=20261115-2";
-import { assignedDimensions, channels, dimensions, evidenceAlternative, requirementWindow, skippedBy,
-  statuses, unknownReasons } from "./review-contract.js";
-import { ReviewPlayer } from "./review-player.js?v=20261115-2";
+import { builtIn, fromFolder, fromZip } from "./bundle.js?v=20261115-3";
+import { assignedDimensions, channels, dimensions, requirementWindow, skippedBy,
+  statuses, unknownReasons } from "./review-contract.js?v=20261115-3";
+import { ReviewPlayer } from "./review-player.js?v=20261115-3";
 import { addTrialMarker, ReviewMetrics } from "./review-metrics.js";
 import { installTrialControls, loadTrialPage } from "./a1.js";
 
@@ -82,10 +82,22 @@ function effectiveAvailability() {
 const coveredByReference = (requirement) =>
   !(row().task_card.reference_unresolved_requirement_ids ?? []).includes(requirement.id);
 
+function optionStatuses(option, window, availability) {
+  return option.map((channel) => channel === "timing" && availability.timing === "valid" &&
+    option.includes("source") && !player.coversSource(window) ? "unavailable" : availability[channel]);
+}
+
+function windowAlternative(req) {
+  const availability = effectiveAvailability();
+  return req.evidence_options.some((option) =>
+    optionStatuses(option, requirementWindow(row(), req), availability).every((status) => status === "valid"));
+}
+
 function attainedAlternative(req, kind, point, physical) {
   const availability = effectiveAvailability();
   const window = requirementWindow(row(), req);
-  return req.evidence_options.find((option) => option.every((channel) => availability[channel] === "valid") &&
+  const timingWindow = kind === "event_anchor" && point ? [point.trace_time_s, point.trace_time_s] : window;
+  return req.evidence_options.find((option) => optionStatuses(option, timingWindow, availability).every((status) => status === "valid") &&
     (kind === "event_anchor" || !option.includes("execution") || experiments() || player.coversWindow(window)) &&
     (!option.includes("physics") || (kind === "event_anchor" ? physical?.contacts_available :
       player.physicalReady(window))) &&
@@ -142,7 +154,8 @@ function untouchedState(key, skips) {
   if (skips[key]) return "skipped";
   const availability = effectiveAvailability();
   const knownGap = requirements.some((req) =>
-    req.evidence_options.every((option) => option.some((channel) => availability[channel] === "unavailable")));
+    req.evidence_options.every((option) => optionStatuses(option, requirementWindow(row(), req), availability)
+      .includes("unavailable")));
   const unresolvedIssue = state.draft.issues.some((issue) => issue.code === "other_material_issue" ||
     issue.code === "media_unavailable" && !issue.affected_channels.length);
   if (knownGap || unresolvedIssue && !state.draft.decisions[key]?.verdict) return "blocked";
@@ -151,7 +164,8 @@ function untouchedState(key, skips) {
 
 function alternateStillValid(evidence) {
   const availability = effectiveAvailability();
-  return evidence?.channels.every((channel) => availability[channel] === "valid") &&
+  const window = evidence?.interval_s ?? [evidence?.trace_time_s, evidence?.trace_time_s];
+  return evidence && optionStatuses(evidence.channels, window, availability).every((status) => status === "valid") &&
     (evidence.time_basis !== "trace" ||
       evidence.kind === "physical_transition" || player.frames &&
       !state.draft.issues.some((issue) => issue.affected_channels.includes("timing")) ||
@@ -169,7 +183,7 @@ function evaluate(key, skips) {
   if (invalidIdentity) return base;
   const unresolved = new Set(draft.unresolved ?? []);
   for (const req of contract) {
-    if (!coveredByReference(req) || !evidenceAlternative(req, effectiveAvailability())) unresolved.add(req.id);
+    if (!coveredByReference(req) || !windowAlternative(req)) unresolved.add(req.id);
   }
   const makeEvaluated = (verdict, codes, covered, decisive, unresolvedIds, evidence) => ({
     ...base, assessment_state: "evaluated", verdict, reason_codes: codes,
@@ -297,7 +311,7 @@ function renderSupport(key) {
     }
   } else {
     const knownUnavailable = required.filter((req) => !coveredByReference(req) ||
-      !evidenceAlternative(req, effectiveAvailability()));
+      !windowAlternative(req));
     const preferred = knownUnavailable.length ? knownUnavailable : required;
     const options = [];
     for (const req of preferred) {
