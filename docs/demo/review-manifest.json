@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "batch_id": "practice-2d",
+  "title": "搬运放置练习",
+  "cases": [
+    {
+      "blind_id": "practice-1",
+      "task": {
+        "title": "搬运并放下杯子",
+        "description": "用一只手把杯子移到绿色目标区。放稳后松手并撤离。",
+        "rubric": {
+          "functional": "杯子是否放在绿色区域内、松手后还能保持稳定？",
+          "contact": "手在什么时候接触、抓住和松开杯子？对照两段视频。",
+          "motion": "比较杯子的路线、动作先后和手撤离的过程。"
+        }
+      },
+      "media": {
+        "source": "source.mp4",
+        "execution": "execution-b.mp4",
+        "source_captions": "source.vtt",
+        "execution_captions": "execution-b.vtt"
+      },
+      "timeline": {
+        "source_duration_s": 4.8,
+        "execution_duration_s": 4.8
+      }
+    },
+    {
+      "blind_id": "practice-2",
+      "task": {
+        "title": "搬运并放下杯子",
+        "description": "用一只手把杯子移到绿色目标区。放稳后松手并撤离。",
+        "rubric": {
+          "functional": "杯子是否放在绿色区域内、松手后还能保持稳定？",
+          "contact": "手在什么时候接触、抓住和松开杯子？对照两段视频。",
+          "motion": "比较杯子的路线、动作先后和手撤离的过程。"
+        }
+      },
+      "media": {
+        "source": "source.mp4",
+        "execution": "execution-a.mp4",
+        "source_captions": "source.vtt",
+        "execution_captions": "execution-a.vtt"
+      },
+      "timeline": {
+        "source_duration_s": 4.8,
+        "execution_duration_s": 4.8
+      }
+    }
+  ]
+}
