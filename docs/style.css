@@ -28,7 +28,7 @@ a { color: inherit; }
 .masthead { background: #192c24; color: #f8faf8; border-bottom: 1px solid #3b5044; }
 .mast-inner { max-width: 1560px; padding: 0 2rem; margin: 0 auto; min-height: 64px; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .brand { display: flex; align-items: center; gap: .75rem; text-decoration: none; white-space: nowrap; font-weight: 750; letter-spacing: -.02em; font-size: 1.15rem; }
-.brand-mark { display: grid; place-items: center; background: #d4e6d9; color: #19352a; width: 34px; aspect-ratio: 1; border-radius: 9px; font-family: "Geist",inherit; }
+.brand-mark { display: grid; place-items: center; background: #d4e6d9; color: #19352a; width: 34px; aspect-ratio: 1; border-radius: 9px; }
 .brand-sub { color: #c5d4c9; font-size: .88rem; font-weight: 500; margin-left: .65rem; letter-spacing: 0; }
 .mast-actions { display: flex; align-items: center; gap: .6rem; }
 .primary,.secondary,.subtle,.icon-button { min-height: 38px; padding: .52rem .82rem; border-radius: 7px; display: inline-flex; justify-content: center; align-items: center; gap: .4rem; white-space: nowrap; font-weight: 650; }
@@ -80,6 +80,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .case-head p { margin: .45rem 0 0; color: var(--muted); max-width: 70ch; line-height: 1.48; font-size: .91rem; }
 .navigation { display: flex; align-items: center; gap: .36rem; }
 .viewers { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .8rem; }
+.mobile-layout { display: none; }
 .media-panel { background: #17231d; color: #f3f7f2; border-radius: var(--radius); overflow: hidden; border: 1px solid #324139; margin: 0; }
 .media-header { display: flex; align-items: center; justify-content: space-between; gap: .45rem; min-height: 40px; padding: .55rem .85rem; background: #24352b; }
 .media-header h2 { font-size: .85rem; margin: 0; font-weight: 650; }
@@ -158,6 +159,9 @@ kbd { border: 1px solid var(--line); border-radius: 4px; padding: .08rem .25rem;
   .navigation > button { padding: .37rem .45rem; min-width: 33px; }
   .navigation span { display: none; }
   .viewers { gap: .42rem; }
+  .viewers.is-stacked { grid-template-columns: 1fr; }
+  .mobile-layout { display: flex; justify-content: end; margin-bottom: .42rem; }
+  .mobile-layout button { min-height: 32px; font-size: .77rem; padding: .32rem .58rem; }
   .media-header { padding: .34rem .47rem; min-height: 33px; }
   .media-header h2 { font-size: .75rem; }
   .media-header span { font-size: .65rem; }

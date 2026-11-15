@@ -57,7 +57,8 @@
           <button id="next" class="secondary" type="button" aria-label="下一条" disabled><span>下一条</span> →</button>
         </div>
       </section>
-      <section class="viewers" aria-label="同步视频">
+      <div class="mobile-layout"><button id="video-layout" class="secondary" type="button" aria-controls="viewers" aria-pressed="false">上下排列</button></div>
+      <section id="viewers" class="viewers" aria-label="同步视频">
         <article class="media-panel">
           <div class="media-header"><h2>人类示范</h2><span id="source-time">0.00 s</span></div>
           <div class="media-stage">
@@ -87,7 +88,7 @@
         <div id="physical-table"></div>
       </details>
       <section class="judgment" aria-labelledby="judgment-title">
-        <div class="judgment-head"><div><h2 id="judgment-title">独立判定</h2><p>先看完整视频，关键片段可降速重看。</p></div><span id="save-status" class="save-status" aria-live="polite"></span></div>
+        <div class="judgment-head"><div><h2 id="judgment-title">独立判定</h2><p>先看完整视频。证据时间以机器人回放为准。</p></div><span id="save-status" class="save-status" aria-live="polite"></span></div>
         <form id="review-form" novalidate>
           <div id="dimensions"></div>
           <div class="form-footer"><p id="completion-error" class="error" aria-live="polite"></p><button id="complete" class="primary" type="submit">完成并下一条 →</button></div>

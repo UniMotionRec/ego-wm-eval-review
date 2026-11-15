@@ -453,6 +453,17 @@ nodes.play.addEventListener("click", togglePlayback);
 nodes.previous.addEventListener("click", () => renderCase(state.index - 1));
 nodes.next.addEventListener("click", () => renderCase(state.index + 1));
 nodes.filter.addEventListener("change", refreshQueue);
+function setVideoLayout(stacked) {
+  nodes.viewers.classList.toggle("is-stacked", stacked);
+  nodes["video-layout"].setAttribute("aria-pressed", String(stacked));
+  text(nodes["video-layout"], stacked ? "并排比较" : "上下排列");
+}
+setVideoLayout(readStorage("ego-wm-review/v1/stacked", false));
+nodes["video-layout"].addEventListener("click", () => {
+  const stacked = !nodes.viewers.classList.contains("is-stacked");
+  setVideoLayout(stacked);
+  writeStorage("ego-wm-review/v1/stacked", stacked);
+});
 
 async function loadPhysical() {
   const path = current()?.media?.physical_evidence;
